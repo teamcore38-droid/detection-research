@@ -1,0 +1,155 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 56,
+   "id": "ca0368e0-6b04-4850-9fb0-da1772ec3cc8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from ultralytics import YOLO\n",
+    "\n",
+    " \n",
+    "# Load trained model\n",
+    "# model = YOLO(\"runs/detect/runs/detect/water_rescue_fast-3/weights/last.pt\")\n",
+    "model = YOLO(\"runs/detect/runs/detect/water_rescue_finetuned/weights/best.pt\")\n",
+    "# model = YOLO(\"drowning _best.pt\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9e9d3969-4c19-4e14-bfe9-d42099558ba6",
+   "metadata": {},
+   "source": [
+    "## test on image"
+   ]
+  },
+  {
+   "cell_type": "raw",
+   "id": "29129b4a-715c-4265-b296-04228ce4cdd9",
+   "metadata": {},
+   "source": [
+    "test \n",
+    "l1, l2 (large group swimming pool)\n",
+    "v1 (swimming video)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 57,
+   "id": "8823d5de-c5ad-4451-9c97-362af6c948f4",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "image 1/1 /Users/mohamedfadhil/Downloads/l3.jpeg: 736x960 4 Drownings, 520.7ms\n",
+      "Speed: 3.5ms preprocess, 520.7ms inference, 1.0ms postprocess per image at shape (1, 3, 736, 960)\n",
+      "Results saved to \u001b[1m/Users/mohamedfadhil/drowning model training/runs/detect/predict-33\u001b[0m\n",
+      "Prediction complete!\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Run prediction\n",
+    "results = model.predict(\n",
+    "    source=\"/Users/mohamedfadhil/Downloads/l3.jpeg\", \n",
+    "    imgsz=960,\n",
+    "    conf=0.3,\n",
+    "    save=True,\n",
+    "    show=True\n",
+    ")\n",
+    "\n",
+    "print(\"Prediction complete!\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9456eb9a-1563-4deb-a56f-90f398b03984",
+   "metadata": {},
+   "source": [
+    "## test on video"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 54,
+   "id": "bd124771-20c6-4e40-b14f-11aad17ee5ef",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    },
+    {
+     "ename": "FileNotFoundError",
+     "evalue": "/Users/mohamedfadhil/Downloads/v2.mp4 does not exist",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mFileNotFoundError\u001b[0m                         Traceback (most recent call last)",
+      "Cell \u001b[0;32mIn[54], line 2\u001b[0m\n\u001b[1;32m      1\u001b[0m \u001b[38;5;66;03m# Run prediction\u001b[39;00m\n\u001b[0;32m----> 2\u001b[0m results \u001b[38;5;241m=\u001b[39m model\u001b[38;5;241m.\u001b[39mpredict(\n\u001b[1;32m      3\u001b[0m     source\u001b[38;5;241m=\u001b[39m\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124m/Users/mohamedfadhil/Downloads/v2.mp4\u001b[39m\u001b[38;5;124m\"\u001b[39m, \n\u001b[1;32m      4\u001b[0m     show\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mTrue\u001b[39;00m,\n\u001b[1;32m      5\u001b[0m     conf\u001b[38;5;241m=\u001b[39m\u001b[38;5;241m0.5\u001b[39m\n\u001b[1;32m      6\u001b[0m )\n",
+      "File \u001b[0;32m/opt/anaconda3/lib/python3.12/site-packages/ultralytics/engine/model.py:537\u001b[0m, in \u001b[0;36mModel.predict\u001b[0;34m(self, source, stream, predictor, **kwargs)\u001b[0m\n\u001b[1;32m    535\u001b[0m \u001b[38;5;28;01mif\u001b[39;00m prompts \u001b[38;5;129;01mand\u001b[39;00m \u001b[38;5;28mhasattr\u001b[39m(\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mpredictor, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mset_prompts\u001b[39m\u001b[38;5;124m\"\u001b[39m):  \u001b[38;5;66;03m# for SAM-type models\u001b[39;00m\n\u001b[1;32m    536\u001b[0m     \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mpredictor\u001b[38;5;241m.\u001b[39mset_prompts(prompts)\n\u001b[0;32m--> 537\u001b[0m \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mpredictor\u001b[38;5;241m.\u001b[39mpredict_cli(source\u001b[38;5;241m=\u001b[39msource) \u001b[38;5;28;01mif\u001b[39;00m is_cli \u001b[38;5;28;01melse\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mpredictor(source\u001b[38;5;241m=\u001b[39msource, stream\u001b[38;5;241m=\u001b[39mstream)\n",
+      "File \u001b[0;32m/opt/anaconda3/lib/python3.12/site-packages/ultralytics/engine/predictor.py:226\u001b[0m, in \u001b[0;36mBasePredictor.__call__\u001b[0;34m(self, source, model, stream, *args, **kwargs)\u001b[0m\n\u001b[1;32m    224\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mstream_inference(source, model, \u001b[38;5;241m*\u001b[39margs, \u001b[38;5;241m*\u001b[39m\u001b[38;5;241m*\u001b[39mkwargs)\n\u001b[1;32m    225\u001b[0m \u001b[38;5;28;01melse\u001b[39;00m:\n\u001b[0;32m--> 226\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m \u001b[38;5;28mlist\u001b[39m(\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mstream_inference(source, model, \u001b[38;5;241m*\u001b[39margs, \u001b[38;5;241m*\u001b[39m\u001b[38;5;241m*\u001b[39mkwargs))\n",
+      "File \u001b[0;32m/opt/anaconda3/lib/python3.12/site-packages/torch/utils/_contextlib.py:36\u001b[0m, in \u001b[0;36m_wrap_generator.<locals>.generator_context\u001b[0;34m(*args, **kwargs)\u001b[0m\n\u001b[1;32m     33\u001b[0m \u001b[38;5;28;01mtry\u001b[39;00m:\n\u001b[1;32m     34\u001b[0m     \u001b[38;5;66;03m# Issuing `None` to a generator fires it up\u001b[39;00m\n\u001b[1;32m     35\u001b[0m     \u001b[38;5;28;01mwith\u001b[39;00m ctx_factory():\n\u001b[0;32m---> 36\u001b[0m         response \u001b[38;5;241m=\u001b[39m gen\u001b[38;5;241m.\u001b[39msend(\u001b[38;5;28;01mNone\u001b[39;00m)\n\u001b[1;32m     38\u001b[0m     \u001b[38;5;28;01mwhile\u001b[39;00m \u001b[38;5;28;01mTrue\u001b[39;00m:\n\u001b[1;32m     39\u001b[0m         \u001b[38;5;28;01mtry\u001b[39;00m:\n\u001b[1;32m     40\u001b[0m             \u001b[38;5;66;03m# Forward the response to our caller and get its next request\u001b[39;00m\n",
+      "File \u001b[0;32m/opt/anaconda3/lib/python3.12/site-packages/ultralytics/engine/predictor.py:300\u001b[0m, in \u001b[0;36mBasePredictor.stream_inference\u001b[0;34m(self, source, model, *args, **kwargs)\u001b[0m\n\u001b[1;32m    296\u001b[0m     \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39msetup_model(model)\n\u001b[1;32m    298\u001b[0m \u001b[38;5;28;01mwith\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39m_lock:  \u001b[38;5;66;03m# for thread-safe inference\u001b[39;00m\n\u001b[1;32m    299\u001b[0m     \u001b[38;5;66;03m# Setup source every time predict is called\u001b[39;00m\n\u001b[0;32m--> 300\u001b[0m     \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39msetup_source(source \u001b[38;5;28;01mif\u001b[39;00m source \u001b[38;5;129;01mis\u001b[39;00m \u001b[38;5;129;01mnot\u001b[39;00m \u001b[38;5;28;01mNone\u001b[39;00m \u001b[38;5;28;01melse\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39margs\u001b[38;5;241m.\u001b[39msource)\n\u001b[1;32m    302\u001b[0m     \u001b[38;5;66;03m# Check if save_dir/ label file exists\u001b[39;00m\n\u001b[1;32m    303\u001b[0m     \u001b[38;5;28;01mif\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39margs\u001b[38;5;241m.\u001b[39msave \u001b[38;5;129;01mor\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39margs\u001b[38;5;241m.\u001b[39msave_txt:\n",
+      "File \u001b[0;32m/opt/anaconda3/lib/python3.12/site-packages/ultralytics/engine/predictor.py:257\u001b[0m, in \u001b[0;36mBasePredictor.setup_source\u001b[0;34m(self, source, stride)\u001b[0m\n\u001b[1;32m    249\u001b[0m \u001b[38;5;250m\u001b[39m\u001b[38;5;124;03m\"\"\"Set up source and inference mode.\u001b[39;00m\n\u001b[1;32m    250\u001b[0m \n\u001b[1;32m    251\u001b[0m \u001b[38;5;124;03mArgs:\u001b[39;00m\n\u001b[0;32m   (...)\u001b[0m\n\u001b[1;32m    254\u001b[0m \u001b[38;5;124;03m    stride (int, optional): Model stride for image size checking.\u001b[39;00m\n\u001b[1;32m    255\u001b[0m \u001b[38;5;124;03m\"\"\"\u001b[39;00m\n\u001b[1;32m    256\u001b[0m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mimgsz \u001b[38;5;241m=\u001b[39m check_imgsz(\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39margs\u001b[38;5;241m.\u001b[39mimgsz, stride\u001b[38;5;241m=\u001b[39mstride \u001b[38;5;129;01mor\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mmodel\u001b[38;5;241m.\u001b[39mstride, min_dim\u001b[38;5;241m=\u001b[39m\u001b[38;5;241m2\u001b[39m)  \u001b[38;5;66;03m# check image size\u001b[39;00m\n\u001b[0;32m--> 257\u001b[0m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mdataset \u001b[38;5;241m=\u001b[39m load_inference_source(\n\u001b[1;32m    258\u001b[0m     source\u001b[38;5;241m=\u001b[39msource,\n\u001b[1;32m    259\u001b[0m     batch\u001b[38;5;241m=\u001b[39m\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39margs\u001b[38;5;241m.\u001b[39mbatch,\n\u001b[1;32m    260\u001b[0m     vid_stride\u001b[38;5;241m=\u001b[39m\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39margs\u001b[38;5;241m.\u001b[39mvid_stride,\n\u001b[1;32m    261\u001b[0m     buffer\u001b[38;5;241m=\u001b[39m\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39margs\u001b[38;5;241m.\u001b[39mstream_buffer,\n\u001b[1;32m    262\u001b[0m     channels\u001b[38;5;241m=\u001b[39m\u001b[38;5;28mgetattr\u001b[39m(\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mmodel, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mchannels\u001b[39m\u001b[38;5;124m\"\u001b[39m, \u001b[38;5;241m3\u001b[39m),\n\u001b[1;32m    263\u001b[0m )\n\u001b[1;32m    264\u001b[0m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39msource_type \u001b[38;5;241m=\u001b[39m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mdataset\u001b[38;5;241m.\u001b[39msource_type\n\u001b[1;32m    265\u001b[0m \u001b[38;5;28;01mif\u001b[39;00m (\n\u001b[1;32m    266\u001b[0m     \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39msource_type\u001b[38;5;241m.\u001b[39mstream\n\u001b[1;32m    267\u001b[0m     \u001b[38;5;129;01mor\u001b[39;00m \u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39msource_type\u001b[38;5;241m.\u001b[39mscreenshot\n\u001b[1;32m    268\u001b[0m     \u001b[38;5;129;01mor\u001b[39;00m \u001b[38;5;28mlen\u001b[39m(\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mdataset) \u001b[38;5;241m>\u001b[39m \u001b[38;5;241m1000\u001b[39m  \u001b[38;5;66;03m# many images\u001b[39;00m\n\u001b[1;32m    269\u001b[0m     \u001b[38;5;129;01mor\u001b[39;00m \u001b[38;5;28many\u001b[39m(\u001b[38;5;28mgetattr\u001b[39m(\u001b[38;5;28mself\u001b[39m\u001b[38;5;241m.\u001b[39mdataset, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mvideo_flag\u001b[39m\u001b[38;5;124m\"\u001b[39m, [\u001b[38;5;28;01mFalse\u001b[39;00m]))\n\u001b[1;32m    270\u001b[0m ):  \u001b[38;5;66;03m# long sequence\u001b[39;00m\n",
+      "File \u001b[0;32m/opt/anaconda3/lib/python3.12/site-packages/ultralytics/data/build.py:433\u001b[0m, in \u001b[0;36mload_inference_source\u001b[0;34m(source, batch, vid_stride, buffer, channels)\u001b[0m\n\u001b[1;32m    431\u001b[0m     dataset \u001b[38;5;241m=\u001b[39m LoadPilAndNumpy(source, channels\u001b[38;5;241m=\u001b[39mchannels)\n\u001b[1;32m    432\u001b[0m \u001b[38;5;28;01melse\u001b[39;00m:\n\u001b[0;32m--> 433\u001b[0m     dataset \u001b[38;5;241m=\u001b[39m LoadImagesAndVideos(source, batch\u001b[38;5;241m=\u001b[39mbatch, vid_stride\u001b[38;5;241m=\u001b[39mvid_stride, channels\u001b[38;5;241m=\u001b[39mchannels)\n\u001b[1;32m    435\u001b[0m \u001b[38;5;66;03m# Attach source types to the dataset\u001b[39;00m\n\u001b[1;32m    436\u001b[0m \u001b[38;5;28msetattr\u001b[39m(dataset, \u001b[38;5;124m\"\u001b[39m\u001b[38;5;124msource_type\u001b[39m\u001b[38;5;124m\"\u001b[39m, source_type)\n",
+      "File \u001b[0;32m/opt/anaconda3/lib/python3.12/site-packages/ultralytics/data/loaders.py:368\u001b[0m, in \u001b[0;36mLoadImagesAndVideos.__init__\u001b[0;34m(self, path, batch, vid_stride, channels)\u001b[0m\n\u001b[1;32m    366\u001b[0m         files\u001b[38;5;241m.\u001b[39mappend(\u001b[38;5;28mstr\u001b[39m((parent \u001b[38;5;241m/\u001b[39m p)\u001b[38;5;241m.\u001b[39mabsolute()))  \u001b[38;5;66;03m# files (relative to *.txt file parent)\u001b[39;00m\n\u001b[1;32m    367\u001b[0m     \u001b[38;5;28;01melse\u001b[39;00m:\n\u001b[0;32m--> 368\u001b[0m         \u001b[38;5;28;01mraise\u001b[39;00m \u001b[38;5;167;01mFileNotFoundError\u001b[39;00m(\u001b[38;5;124mf\u001b[39m\u001b[38;5;124m\"\u001b[39m\u001b[38;5;132;01m{\u001b[39;00mp\u001b[38;5;132;01m}\u001b[39;00m\u001b[38;5;124m does not exist\u001b[39m\u001b[38;5;124m\"\u001b[39m)\n\u001b[1;32m    370\u001b[0m \u001b[38;5;66;03m# Define files as images or videos\u001b[39;00m\n\u001b[1;32m    371\u001b[0m images, videos \u001b[38;5;241m=\u001b[39m [], []\n",
+      "\u001b[0;31mFileNotFoundError\u001b[0m: /Users/mohamedfadhil/Downloads/v2.mp4 does not exist"
+     ]
+    }
+   ],
+   "source": [
+    "# Run prediction\n",
+    "results = model.predict(\n",
+    "    source=\"/Users/mohamedfadhil/Downloads/v2.mp4\", \n",
+    "    show=True,\n",
+    "    conf=0.5\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "00d1c410-fb2a-4a24-89d4-45c11bb99282",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "31bccf62-d4a0-40af-a504-aa7c187f328a",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python [conda env:base] *",
+   "language": "python",
+   "name": "conda-base-py"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.4"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
