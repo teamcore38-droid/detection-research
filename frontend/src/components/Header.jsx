@@ -9,18 +9,20 @@ import {
   LifeBuoy, 
   Compass, 
   Clock,
-  Sliders
+  Sliders,
+  BellOff
 } from 'lucide-react';
 
 export const Header = ({ 
   isConnected, 
   isAudioEnabled, 
   setIsAudioEnabled, 
+  isBuzzerActive,
+  onStopBuzzer,
   stats, 
   activeTab, 
   setActiveTab,
   onOpenSettings,
-  activeAlert
 }) => {
   const [timeStr, setTimeStr] = useState('');
 
@@ -36,21 +38,6 @@ export const Header = ({
 
   return (
     <header className="border-b border-slate-800/80 bg-[#0c111d]/90 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3">
-      {/* Top emergency banner ticker if active critical alert */}
-      {activeAlert && activeAlert.threat_level === 'CRITICAL' && (
-        <div className="mb-3 bg-red-600/90 text-white font-bold px-4 py-2 rounded-lg flex items-center justify-between shadow-lg shadow-red-900/50 animate-pulse">
-          <div className="flex items-center space-x-3">
-            <ShieldAlert className="w-5 h-5 animate-bounce" />
-            <span className="text-sm uppercase tracking-wide">
-              {activeAlert.title}: {activeAlert.message}
-            </span>
-          </div>
-          <span className="text-xs bg-black/40 px-2.5 py-1 rounded font-mono">
-            {new Date(activeAlert.timestamp).toLocaleTimeString()}
-          </span>
-        </div>
-      )}
-
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Logo & System Brand */}
         <div className="flex items-center space-x-3">
@@ -75,7 +62,7 @@ export const Header = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+        <div className="flex items-center bg-slate-900/80 p-1 rounded-xl border border-slate-800 flex-wrap">
           <button
             onClick={() => setActiveTab('animal_human')}
             className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -131,7 +118,19 @@ export const Header = ({
 
         {/* Right Status Controls */}
         <div className="flex items-center space-x-3 text-xs">
-          {/* Audio Siren Toggle */}
+          {/* Active Buzzer Stop Control */}
+          {isBuzzerActive && (
+            <button
+              onClick={onStopBuzzer}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold animate-pulse shadow-lg shadow-red-600/50 transition border border-yellow-300"
+              title="Click or press Space to silence buzzer"
+            >
+              <BellOff className="w-4 h-4" />
+              <span>SILENCE BUZZER</span>
+            </button>
+          )}
+
+          {/* Audio Siren Enable/Disable Toggle */}
           <button
             onClick={() => setIsAudioEnabled(!isAudioEnabled)}
             title={isAudioEnabled ? "Audio Sirens Enabled" : "Audio Muted"}

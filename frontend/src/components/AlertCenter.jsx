@@ -3,14 +3,12 @@ import {
   ShieldAlert, 
   AlertTriangle, 
   Check, 
-  Trash2, 
-  ExternalLink,
-  Clock,
-  Camera
+  Camera,
+  BellOff
 } from 'lucide-react';
 import { acknowledgeAlert } from '../services/api';
 
-export const AlertCenter = ({ alerts = [], onSelectAlert, onAlertAck }) => {
+export const AlertCenter = ({ alerts = [], onSelectAlert, onAlertAck, isBuzzerActive, onStopBuzzer }) => {
   const handleAck = async (e, id) => {
     e.stopPropagation();
     try {
@@ -34,6 +32,21 @@ export const AlertCenter = ({ alerts = [], onSelectAlert, onAlertAck }) => {
           {alerts.length} events logged
         </span>
       </div>
+
+      {isBuzzerActive && (
+        <div className="mx-3 mt-3 p-2.5 rounded-xl bg-red-600/90 text-white flex items-center justify-between text-xs font-bold animate-pulse border border-yellow-300">
+          <div className="flex items-center space-x-1.5">
+            <ShieldAlert className="w-4 h-4" />
+            <span>BUZZER SOUNDING</span>
+          </div>
+          <button
+            onClick={onStopBuzzer}
+            className="px-2.5 py-1 rounded bg-yellow-400 hover:bg-yellow-300 text-black font-black text-[11px] transition shadow"
+          >
+            SILENCE
+          </button>
+        </div>
+      )}
 
       <div className="p-3 overflow-y-auto space-y-2.5 max-h-[460px] flex-1">
         {alerts.length === 0 ? (

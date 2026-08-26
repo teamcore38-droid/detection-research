@@ -1,64 +1,101 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// Web Audio API Synth for Siren/Chime Alert
-export const playAlertSound = (type = 'CRITICAL') => {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+// Web Audio API Continuous "Beep-Beep" Buzzer Synth
+class BuzzerController {
+  constructor() {
+    this.ctx = null;
+    this.timerId = null;
+    this.isPlaying = false;
+  }
 
-    if (type === 'CRITICAL') {
-      // High-pitch dual-tone emergency siren
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const gain = ctx.createGain();
+  _getAudioContext() {
+    if (!this.ctx) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        this.ctx = new AudioContext();
+      }
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+    return this.ctx;
+  }
 
-      osc1.type = 'sawtooth';
-      osc2.type = 'sine';
-
+  _playDoubleBeep() {
+    try {
+      const ctx = this._getAudioContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
-      osc1.frequency.setValueAtTime(880, now);
-      osc1.frequency.linearRampToValueAtTime(1200, now + 0.15);
-      osc1.frequency.linearRampToValueAtTime(880, now + 0.3);
-      osc1.frequency.linearRampToValueAtTime(1200, now + 0.45);
 
-      osc2.frequency.setValueAtTime(440, now);
-      osc2.frequency.linearRampToValueAtTime(600, now + 0.3);
-
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
-
-      osc1.connect(gain);
-      osc2.connect(gain);
-      gain.connect(ctx.destination);
-
+      // Beep 1 (high urgent tone: 950 Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'square';
+      osc1.frequency.setValueAtTime(950, now);
+      gain1.gain.setValueAtTime(0.3, now);
+      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
       osc1.start(now);
-      osc2.start(now);
-      osc1.stop(now + 0.5);
-      osc2.stop(now + 0.5);
-    } else {
-      // Warning double chime
+      osc1.stop(now + 0.12);
+
+      // Beep 2 (higher urgent tone: 1150 Hz)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(1150, now + 0.16);
+      gain2.gain.setValueAtTime(0.32, now + 0.16);
+      gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.16);
+      osc2.stop(now + 0.28);
+    } catch (e) {
+      console.warn('Audio buzzer synth error:', e);
+    }
+  }
+
+  playWarningChime() {
+    try {
+      const ctx = this._getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'triangle';
-
-      const now = ctx.currentTime;
       osc.frequency.setValueAtTime(587.33, now); // D5
       osc.frequency.setValueAtTime(880, now + 0.15); // A5
-
       gain.gain.setValueAtTime(0.2, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-
       osc.connect(gain);
       gain.connect(ctx.destination);
-
       osc.start(now);
       osc.stop(now + 0.4);
+    } catch (e) {
+      console.warn('Warning chime error:', e);
     }
-  } catch (err) {
-    console.warn('Audio playback error:', err);
   }
-};
+
+  start() {
+    if (this.isPlaying) return;
+    this.isPlaying = true;
+    this._playDoubleBeep();
+    // Continuously repeat "beep-beep" every 800ms
+    this.timerId = setInterval(() => {
+      this._playDoubleBeep();
+    }, 800);
+  }
+
+  stop() {
+    this.isPlaying = false;
+    if (this.timerId) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+  }
+}
+
+export const buzzer = new BuzzerController();
 
 export const useAlertWebSocket = (onNewAlert, isAudioEnabled = true) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -82,9 +119,6 @@ export const useAlertWebSocket = (onNewAlert, isAudioEnabled = true) => {
             if (onNewAlert) {
               onNewAlert(payload.data);
             }
-            if (isAudioEnabled) {
-              playAlertSound(payload.data.threat_level);
-            }
           }
         } catch (e) {
           console.error('Error parsing WebSocket alert message:', e);
@@ -93,7 +127,6 @@ export const useAlertWebSocket = (onNewAlert, isAudioEnabled = true) => {
 
       ws.onclose = () => {
         setIsConnected(false);
-        console.log('WebSocket disconnected. Reconnecting in 3s...');
         reconnectTimeoutRef.current = setTimeout(connect, 3000);
       };
 
@@ -107,7 +140,7 @@ export const useAlertWebSocket = (onNewAlert, isAudioEnabled = true) => {
       console.error('WebSocket connection error:', err);
       reconnectTimeoutRef.current = setTimeout(connect, 3000);
     }
-  }, [onNewAlert, isAudioEnabled]);
+  }, [onNewAlert]);
 
   useEffect(() => {
     connect();

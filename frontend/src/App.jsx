@@ -8,19 +8,22 @@ import { IncidentLog } from './components/IncidentLog';
 import { SnapshotModal } from './components/SnapshotModal';
 import { SettingsModal } from './components/SettingsModal';
 import { UploadModal } from './components/UploadModal';
-import { useAlertWebSocket } from './hooks/useWebSocket';
+import { EmergencyBuzzer } from './components/EmergencyBuzzer';
+import { useAlertWebSocket, buzzer } from './hooks/useWebSocket';
 import { getAlerts, getAlertStats, getAvailableVideos, getStreamStats, controlStream } from './services/api';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('animal_human'); // 'animal_human' | 'drowning' | 'dual' | 'logs'
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isBuzzerActive, setIsBuzzerActive] = useState(false);
+  const [activeBuzzerAlert, setActiveBuzzerAlert] = useState(null);
+
   const [alerts, setAlerts] = useState([]);
   const [stats, setStats] = useState({ total: 0, critical: 0, warning: 0, drowning_incidents: 0, animal_threat_incidents: 0 });
-  const [activeAlert, setActiveAlert] = useState(null);
   const [selectedSnapshotAlert, setSelectedSnapshotAlert] = useState(null);
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [uploadChannel, setUploadChannel] = useState(null); // 'drowning' | 'animal_human' | null
+  const [uploadChannel, setUploadChannel] = useState(null);
   const [availableVideos, setAvailableVideos] = useState([]);
 
   // Active video source state for each channel
@@ -31,6 +34,13 @@ export default function App() {
 
   const [animalHumanStats, setAnimalHumanStats] = useState({});
   const [drowningStats, setDrowningStats] = useState({});
+
+  // Stop / Silence Buzzer manually
+  const handleStopBuzzer = useCallback(() => {
+    buzzer.stop();
+    setIsBuzzerActive(false);
+    setActiveBuzzerAlert(null);
+  }, []);
 
   // Fetch initial data
   const fetchData = useCallback(async () => {
@@ -74,7 +84,6 @@ export default function App() {
   // Handle incoming real-time WebSocket alert
   const handleNewAlert = useCallback((newAlert) => {
     setAlerts((prev) => [newAlert, ...prev]);
-    setActiveAlert(newAlert);
     setStats((prev) => ({
       ...prev,
       total: (prev.total || 0) + 1,
@@ -82,29 +91,41 @@ export default function App() {
       warning: newAlert.threat_level === 'WARNING' ? (prev.warning || 0) + 1 : (prev.warning || 0),
     }));
 
-    setTimeout(() => {
-      setActiveAlert((curr) => (curr && curr.id === newAlert.id ? null : curr));
-    }, 6000);
-  }, []);
+    if (newAlert.threat_level === 'CRITICAL') {
+      setActiveBuzzerAlert(newAlert);
+      setIsBuzzerActive(true);
+      if (isAudioEnabled) {
+        buzzer.start(); // Continuously plays "beep-beep" until user clicks stop
+      }
+    } else if (newAlert.threat_level === 'WARNING' && isAudioEnabled && !isBuzzerActive) {
+      buzzer.playWarningChime();
+    }
+  }, [isAudioEnabled, isBuzzerActive]);
 
   const { isConnected } = useAlertWebSocket(handleNewAlert, isAudioEnabled);
+
+  // If audio is globally muted while buzzer is sounding, stop the buzzer
+  useEffect(() => {
+    if (!isAudioEnabled && isBuzzerActive) {
+      buzzer.stop();
+    } else if (isAudioEnabled && isBuzzerActive) {
+      buzzer.start();
+    }
+  }, [isAudioEnabled, isBuzzerActive]);
 
   // Handle video upload success
   const handleUploadSuccess = async (uploadRes, targetCh) => {
     const ch = targetCh || (activeTab === 'drowning' ? 'drowning' : 'animal_human');
     const filePath = uploadRes.path;
 
-    // 1. Switch active source on backend
     try {
       await controlStream(ch, 'start', filePath);
     } catch (e) {
       console.error('Failed to start stream with uploaded video:', e);
     }
 
-    // 2. Fetch fresh video list from backend
     await fetchData();
 
-    // 3. Update channel source state in React to immediately reflect on player
     setChannelSources((prev) => ({
       ...prev,
       [ch]: filePath,
@@ -112,21 +133,32 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070a11] text-slate-100">
+    <div className="min-h-screen flex flex-col bg-[#070a11] text-slate-100 relative">
+      {/* Emergency Buzzer Banner (Active when critical signal appears) */}
+      {isBuzzerActive && activeBuzzerAlert && (
+        <EmergencyBuzzer
+          alert={activeBuzzerAlert}
+          onStopBuzzer={handleStopBuzzer}
+        />
+      )}
+
       {/* Top Header */}
       <Header
         isConnected={isConnected}
         isAudioEnabled={isAudioEnabled}
         setIsAudioEnabled={setIsAudioEnabled}
+        isBuzzerActive={isBuzzerActive}
+        onStopBuzzer={handleStopBuzzer}
         stats={stats}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        activeAlert={activeAlert}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 lg:p-8 max-w-[1700px] w-full mx-auto space-y-6">
+      <main className={`flex-1 p-4 lg:p-8 max-w-[1700px] w-full mx-auto space-y-6 transition-all ${
+        isBuzzerActive ? 'mt-14' : ''
+      }`}>
         {/* VIEW 1: Wildlife Threat Surveillance */}
         {activeTab === 'animal_human' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -149,6 +181,8 @@ export default function App() {
                 alerts={alerts.filter(a => a.channel === 'ANIMAL_HUMAN_SECURITY')}
                 onSelectAlert={(a) => setSelectedSnapshotAlert(a)}
                 onAlertAck={(id) => fetchData()}
+                isBuzzerActive={isBuzzerActive}
+                onStopBuzzer={handleStopBuzzer}
               />
             </div>
           </div>
@@ -176,6 +210,8 @@ export default function App() {
                 alerts={alerts.filter(a => a.channel === 'DROWNING_RESCUE')}
                 onSelectAlert={(a) => setSelectedSnapshotAlert(a)}
                 onAlertAck={(id) => fetchData()}
+                isBuzzerActive={isBuzzerActive}
+                onStopBuzzer={handleStopBuzzer}
               />
             </div>
           </div>
@@ -216,6 +252,8 @@ export default function App() {
                 alerts={alerts}
                 onSelectAlert={(a) => setSelectedSnapshotAlert(a)}
                 onAlertAck={(id) => fetchData()}
+                isBuzzerActive={isBuzzerActive}
+                onStopBuzzer={handleStopBuzzer}
               />
             </div>
           </div>
