@@ -22,7 +22,7 @@ class StreamChannel:
         self.latest_encoded_frame: Optional[bytes] = None
         self.latest_stats: dict = {}
         
-        # Detector instances (pre-initialize for instant inference)
+        # Detector instances
         if self.channel_type == "DROWNING":
             self.drowning_detector = DrowningDetector()
             self.animal_human_detector = None
@@ -72,7 +72,6 @@ class StreamChannel:
 
     def _normalize_stream_url(self, url: str) -> str:
         u = str(url).strip()
-        # If user entered http://10.x.x.x:8080 or http://10.x.x.x:4747 without /video endpoint
         if u.startswith("http://") or u.startswith("https://"):
             if not u.endswith("/video") and not u.endswith("/mjpegfeed") and not u.endswith(".mjpg"):
                 if u.endswith("/"):
@@ -85,32 +84,35 @@ class StreamChannel:
         src = self.source
         src_str = str(src).lower().strip()
         
-        # 1. Device index for webcam / USB DroidCam / DirectShow
+        # 1. Device index for webcam / DroidCam
         if src_str in ["webcam", "camera_0", "camera 0", "0"]:
-            print(f"[{self.channel_id}] Opening Camera Index 0 with DirectShow...")
-            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            return cap
-        elif src_str in ["camera_1", "camera 1", "1", "phone_usb"]:
-            print(f"[{self.channel_id}] Opening Camera Index 1 with DirectShow...")
-            cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+            print(f"[{self.channel_id}] Opening Camera 0 (Laptop Webcam)...")
+            cap = cv2.VideoCapture(0)
             if not cap.isOpened():
-                print(f"[{self.channel_id}] Camera Index 1 not found, trying Camera 0...")
                 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             return cap
+        elif src_str in ["camera_1", "camera 1", "1", "phone_usb", "droidcam"]:
+            print(f"[{self.channel_id}] Opening Camera 1 (DroidCam Phone Camera)...")
+            cap = cv2.VideoCapture(1)
+            if not cap.isOpened():
+                cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            return cap
         elif src_str in ["camera_2", "camera 2", "2"]:
-            cap = cv2.VideoCapture(2, cv2.CAP_DSHOW)
+            cap = cv2.VideoCapture(2)
+            if not cap.isOpened():
+                cap = cv2.VideoCapture(2, cv2.CAP_DSHOW)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             return cap
         elif src_str.isdigit():
-            cap = cv2.VideoCapture(int(src_str), cv2.CAP_DSHOW)
+            cap = cv2.VideoCapture(int(src_str))
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
@@ -144,7 +146,6 @@ class StreamChannel:
 
         if not cap.isOpened():
             print(f"Failed to open source {self.source} for channel {self.channel_id}")
-            # Try fallback to default video
             fallback = DEFAULT_DROWNING_VIDEO if self.channel_type == "DROWNING" else DEFAULT_ANIMAL_HUMAN_VIDEO
             self.source = fallback
             cap = cv2.VideoCapture(fallback)
@@ -161,7 +162,6 @@ class StreamChannel:
         while self.is_running:
             start_t = time.time()
             
-            # Check if user switched source in UI
             if self.source != current_active_source:
                 cap.release()
                 cap = self._open_capture()
@@ -188,7 +188,6 @@ class StreamChannel:
                     time.sleep(0.03)
                     continue
 
-            # Resize HD frames slightly for fast inference on CPU
             h, w = frame.shape[:2]
             if w > 960:
                 frame = cv2.resize(frame, (960, int(h * 960 / w)))
@@ -248,7 +247,6 @@ class StreamChannel:
             except Exception as e:
                 print(f"Inference error in channel {self.channel_id}: {e}")
 
-            # Encode frame to JPEG
             ret_encode, buffer = cv2.imencode(".jpg", annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
             if ret_encode:
                 with self.lock:
