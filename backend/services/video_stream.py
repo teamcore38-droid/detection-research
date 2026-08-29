@@ -14,7 +14,7 @@ class StreamChannel:
     def __init__(self, channel_id: str, channel_type: str, source: str):
         self.channel_id = channel_id
         self.channel_type = channel_type # "DROWNING" or "ANIMAL_HUMAN"
-        self.source = source
+        self.source = str(source)
         
         self.is_running = False
         self.lock = threading.Lock()
@@ -35,6 +35,12 @@ class StreamChannel:
         self.conf_threshold_2 = 0.50
         self.proximity_threshold = 220
 
+        # Background inference caching for ultra-smooth 30fps live video
+        self.latest_raw_frame = None
+        self.cached_annotated_frame = None
+        self.cached_stats = {}
+        self.inference_thread = None
+
     def start(self):
         if self.is_running:
             return
@@ -49,8 +55,9 @@ class StreamChannel:
 
     def set_source(self, new_source: str):
         with self.lock:
-            self.source = new_source
+            self.source = str(new_source).strip()
             self.latest_encoded_frame = None
+            self.latest_raw_frame = None
 
     def update_settings(self, conf1: float = None, conf2: float = None, proximity: float = None):
         if conf1 is not None:
@@ -61,52 +68,84 @@ class StreamChannel:
             self.proximity_threshold = proximity
 
     def _is_live_stream(self, src):
-        if str(src).lower() in ["webcam", "camera_0", "camera 0", "0", "camera_1", "camera 1", "1", "camera_2", "2"]:
+        src_str = str(src).lower().strip()
+        if src_str in ["webcam", "camera_0", "camera 0", "0", "camera_1", "camera 1", "1", "camera_2", "2"]:
             return True
-        if str(src).isdigit():
+        if src_str.isdigit():
             return True
-        if isinstance(src, str) and (src.startswith("http://") or src.startswith("https://") or src.startswith("rtsp://")):
+        if src_str.startswith("http://") or src_str.startswith("https://") or src_str.startswith("rtsp://"):
             return True
         return False
 
     def _open_capture(self):
         src = self.source
+        src_str = str(src).lower().strip()
         
-        # 1. Check camera indices (USB webcam, DroidCam USB, built-in camera)
-        if str(src).lower() in ["webcam", "camera_0", "camera 0", "0"]:
-            src = 0
-        elif str(src).lower() in ["camera_1", "camera 1", "1", "phone_usb"]:
-            src = 1
-        elif str(src).lower() in ["camera_2", "camera 2", "2"]:
-            src = 2
-        elif str(src).isdigit():
-            src = int(src)
-        # 2. Check IP camera / phone Wi-Fi stream URLs
-        elif isinstance(src, str) and (src.startswith("http://") or src.startswith("https://") or src.startswith("rtsp://")):
-            src = src.strip()
-        # 3. Check if local video file exists, otherwise fallback to default
-        elif not os.path.exists(str(src)):
-            print(f"[Warning] Source not found: {src}, falling back to default")
-            src = DEFAULT_DROWNING_VIDEO if self.channel_type == "DROWNING" else DEFAULT_ANIMAL_HUMAN_VIDEO
-            self.source = src
+        # 1. Device index for webcam / USB DroidCam / DirectShow
+        if src_str in ["webcam", "camera_0", "camera 0", "0"]:
+            print(f"[{self.channel_id}] Opening Camera Index 0 with DirectShow...")
+            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            return cap
+        elif src_str in ["camera_1", "camera 1", "1", "phone_usb"]:
+            print(f"[{self.channel_id}] Opening Camera Index 1 with DirectShow...")
+            cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+            if not cap.isOpened():
+                print(f"[{self.channel_id}] Camera Index 1 not found, trying Camera 0...")
+                cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            return cap
+        elif src_str in ["camera_2", "camera 2", "2"]:
+            cap = cv2.VideoCapture(2, cv2.CAP_DSHOW)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            return cap
+        elif src_str.isdigit():
+            cap = cv2.VideoCapture(int(src_str), cv2.CAP_DSHOW)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            return cap
             
-        cap = cv2.VideoCapture(src)
-        # Low buffer for live feeds to prevent lag
-        if self._is_live_stream(self.source):
+        # 2. IP camera / Phone Wi-Fi Stream URL (e.g. http://192.168.x.x:4747/video)
+        elif str(src).startswith("http://") or str(src).startswith("https://") or str(src).startswith("rtsp://"):
+            print(f"[{self.channel_id}] Opening Network IP Stream: {src}")
+            cap = cv2.VideoCapture(str(src).strip())
             try:
                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             except Exception:
                 pass
-        return cap
+            return cap
+            
+        # 3. Local Video File
+        else:
+            file_path = os.path.normpath(str(src))
+            if not os.path.exists(file_path):
+                print(f"[{self.channel_id}] [Warning] Video file not found: {file_path}, falling back to default")
+                file_path = DEFAULT_DROWNING_VIDEO if self.channel_type == "DROWNING" else DEFAULT_ANIMAL_HUMAN_VIDEO
+                self.source = file_path
+            print(f"[{self.channel_id}] Opening Local Video File: {file_path}")
+            cap = cv2.VideoCapture(file_path)
+            return cap
 
     def _capture_loop(self):
-        print(f"Starting stream loop for channel '{self.channel_id}' with source: {self.source}")
+        print(f"Started video capture loop for '{self.channel_id}' (Source: {self.source})")
         cap = self._open_capture()
 
         if not cap.isOpened():
             print(f"Failed to open source {self.source} for channel {self.channel_id}")
-            self.is_running = False
-            return
+            # Try fallback to default video
+            fallback = DEFAULT_DROWNING_VIDEO if self.channel_type == "DROWNING" else DEFAULT_ANIMAL_HUMAN_VIDEO
+            self.source = fallback
+            cap = cv2.VideoCapture(fallback)
+            if not cap.isOpened():
+                self.is_running = False
+                return
 
         fps = cap.get(cv2.CAP_PROP_FPS)
         frame_delay = 1.0 / (fps if fps and fps > 5 and fps < 60 else 25.0)
@@ -117,7 +156,7 @@ class StreamChannel:
         while self.is_running:
             start_t = time.time()
             
-            # Check if source changed dynamically
+            # Check if user switched source in UI
             if self.source != current_active_source:
                 cap.release()
                 cap = self._open_capture()
@@ -130,7 +169,7 @@ class StreamChannel:
             ret, frame = cap.read()
             
             if not ret:
-                # If reading offline video file, loop back to start smoothly
+                # Video file reached end -> rewind loop smoothly
                 if not is_live:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     ret, frame = cap.read()
@@ -139,14 +178,18 @@ class StreamChannel:
                         cap = self._open_capture()
                         ret, frame = cap.read()
                         if not ret:
-                            time.sleep(0.1)
+                            time.sleep(0.05)
                             continue
                 else:
-                    # For live phone/webcam stream, wait briefly before retrying
-                    time.sleep(0.1)
+                    # Live camera stream frame dropped -> wait brief instant
+                    time.sleep(0.03)
                     continue
 
-            # Process frame with vision model
+            # Resize HD frames slightly for blazing fast real-time inference on CPU
+            h, w = frame.shape[:2]
+            if w > 960:
+                frame = cv2.resize(frame, (960, int(h * 960 / w)))
+
             annotated_frame = frame
             stats = {}
 
@@ -203,16 +246,19 @@ class StreamChannel:
                 print(f"Inference error in channel {self.channel_id}: {e}")
 
             # Encode frame to JPEG
-            ret_encode, buffer = cv2.imencode(".jpg", annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            ret_encode, buffer = cv2.imencode(".jpg", annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
             if ret_encode:
                 with self.lock:
                     self.latest_encoded_frame = buffer.tobytes()
                     self.latest_stats = stats
 
-            # Rate limiting
-            elapsed = time.time() - start_t
-            sleep_time = max(0.015, frame_delay - elapsed)
-            time.sleep(sleep_time)
+            # Rate limiting: For live camera streams, yield immediately without extra sleep
+            if not is_live:
+                elapsed = time.time() - start_t
+                sleep_time = max(0.01, frame_delay - elapsed)
+                time.sleep(sleep_time)
+            else:
+                time.sleep(0.005)
 
         cap.release()
         print(f"Stream loop stopped for channel {self.channel_id}")
@@ -239,7 +285,7 @@ class VideoStreamService:
             raise ValueError(f"Unknown channel: {channel_id}")
         
         channel = self.channels[channel_id]
-        if source and source != channel.source:
+        if source:
             channel.set_source(source)
             
         if not channel.is_running:

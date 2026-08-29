@@ -74,16 +74,15 @@ def generate_mjpeg_frames(channel_id: str):
         if frame_bytes is not None:
             yield (b"--frame\r\n"
                    b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n")
-            time.sleep(0.035) # ~28 FPS to prevent network socket buffer overflow
+            time.sleep(0.025) # ~40 FPS cap to prevent network buffer overflow
         else:
-            time.sleep(0.05)
+            time.sleep(0.04)
 
 @app.get("/api/stream/{channel_id}")
 async def stream_feed(channel_id: str):
     if channel_id not in video_stream_service.channels:
         raise HTTPException(status_code=404, detail=f"Channel '{channel_id}' not found")
     
-    # Auto-start if not running
     video_stream_service.start_channel(channel_id)
     
     return StreamingResponse(
@@ -94,7 +93,7 @@ async def stream_feed(channel_id: str):
 class StreamControlRequest(BaseModel):
     channel_id: str
     action: str # "start", "stop", "restart"
-    source: Optional[str] = None # file path, "sample", or "webcam"
+    source: Optional[str] = None # file path, "sample", "0", "1", or "http://..."
 
 @app.post("/api/stream/control")
 async def control_stream(req: StreamControlRequest):
@@ -102,24 +101,32 @@ async def control_stream(req: StreamControlRequest):
         raise HTTPException(status_code=404, detail="Channel not found")
     
     src = req.source
-    if src == "sample" or src is None:
+    src_str = str(src).strip() if src else ""
+    
+    if src == "sample" or not src_str:
         if req.channel_id == "drowning":
             src = DEFAULT_DROWNING_VIDEO
         else:
             src = DEFAULT_ANIMAL_HUMAN_VIDEO
+    elif src_str.isdigit() or src_str.lower() in ["webcam", "0", "1", "2", "phone_usb"]:
+        src = src_str
+    elif src_str.startswith("http://") or src_str.startswith("https://") or src_str.startswith("rtsp://"):
+        src = src_str
     else:
-        src = os.path.normpath(src)
+        src = os.path.normpath(src_str)
         
+    print(f"Control stream for channel '{req.channel_id}': action={req.action}, source={src}")
+
     if req.action == "start":
         video_stream_service.start_channel(req.channel_id, source=src)
     elif req.action == "stop":
         video_stream_service.stop_channel(req.channel_id)
     elif req.action == "restart":
         video_stream_service.stop_channel(req.channel_id)
-        time.sleep(0.2)
+        time.sleep(0.15)
         video_stream_service.start_channel(req.channel_id, source=src)
         
-    return {"status": "success", "channel_id": req.channel_id, "action": req.action, "source": src}
+    return {"status": "success", "channel_id": req.channel_id, "action": req.action, "source": str(src)}
 
 @app.get("/api/stream/{channel_id}/stats")
 async def get_stream_stats(channel_id: str):
@@ -154,14 +161,14 @@ async def list_available_videos():
     # 1. Default sample videos
     if os.path.exists(DEFAULT_ANIMAL_HUMAN_VIDEO):
         videos.append({
-            "name": "📹 Default: Animal & Human Security",
+            "name": "📹 Default: Animal & Human Video",
             "path": os.path.normpath(DEFAULT_ANIMAL_HUMAN_VIDEO),
             "is_default": True,
             "channel_type": "ANIMAL_HUMAN"
         })
     if os.path.exists(DEFAULT_DROWNING_VIDEO):
         videos.append({
-            "name": "🏊 Default: Drowning Water Rescue",
+            "name": "🏊 Default: Drowning Rescue Video",
             "path": os.path.normpath(DEFAULT_DROWNING_VIDEO),
             "is_default": True,
             "channel_type": "DROWNING"

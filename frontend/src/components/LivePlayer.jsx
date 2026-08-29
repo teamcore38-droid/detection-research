@@ -30,10 +30,8 @@ export const LivePlayer = ({
   const [streamSource, setStreamSource] = useState(currentSource || 'sample');
   const [streamKey, setStreamKey] = useState(Date.now());
 
-  // Normalize path helper for comparing Windows/Unix paths
   const norm = (p) => (p || '').replace(/\\/g, '/').toLowerCase();
 
-  // Keep internal source synced with parent prop if provided
   useEffect(() => {
     if (currentSource && norm(currentSource) !== norm(streamSource)) {
       setStreamSource(currentSource);
@@ -87,12 +85,12 @@ export const LivePlayer = ({
   const currentVideoObj = availableVideos.find(v => norm(v.path) === norm(streamSource));
   const currentDisplayName = currentVideoObj 
     ? currentVideoObj.name 
-    : (streamSource === 'webcam' || streamSource === '0' 
-        ? '💻 Built-in / USB Camera 0' 
+    : (streamSource === '0' || streamSource === 'webcam'
+        ? '💻 Live Camera 0 (Webcam)' 
         : (streamSource === '1' 
-            ? '📱 Phone Camera (USB / Camera 1)' 
+            ? '📱 Live Camera 1 (Phone USB)' 
             : (streamSource.startsWith('http') || streamSource.startsWith('rtsp') 
-                ? `📱 Phone Live Stream (${streamSource})` 
+                ? `📱 Phone Wi-Fi Stream` 
                 : (streamSource === 'sample' ? 'Default Demo Video' : 'Custom Video Feed'))));
 
   return (
@@ -118,21 +116,21 @@ export const LivePlayer = ({
             className="text-xs bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 focus:outline-none focus:border-cyan-500 max-w-[200px] truncate"
           >
             <option value="sample">📹 Default Footage</option>
-            <option value="0">💻 Built-in / Camera 0</option>
-            <option value="1">📱 Phone USB / Camera 1</option>
+            <option value="0">💻 Live Camera 0 (Webcam)</option>
+            <option value="1">📱 Live Camera 1 (Phone USB)</option>
             {availableVideos.map((v, idx) => (
               <option key={idx} value={v.path}>{v.name}</option>
             ))}
           </select>
 
-          {/* Connect Phone Camera Button */}
+          {/* Connect Phone / Live Camera Button */}
           <button
             onClick={() => onOpenPhoneCamera(channelId)}
-            title="Connect Phone Camera via Wi-Fi or USB Cable"
+            title="Connect Live Camera or Phone (Wi-Fi / USB)"
             className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition"
           >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>Phone Camera</span>
+            <Camera className="w-3.5 h-3.5" />
+            <span>Connect Camera</span>
           </button>
 
           {/* Upload Video Button */}
@@ -212,7 +210,7 @@ export const LivePlayer = ({
       {/* Video Footer Metadata & Quick Stats */}
       <div className="px-4 py-2.5 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
         <div className="flex items-center space-x-4 font-mono truncate">
-          <span>FPS: <strong className="text-slate-200">~25</strong></span>
+          <span>FPS: <strong className="text-slate-200">~25-30</strong></span>
           <span className="truncate">Active Source: <strong className="text-cyan-400">{currentDisplayName}</strong></span>
         </div>
         <div className="flex items-center space-x-2 shrink-0">
