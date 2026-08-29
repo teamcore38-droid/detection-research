@@ -6,6 +6,7 @@ import {
   Camera, 
   Film, 
   Upload, 
+  Smartphone,
   AlertTriangle, 
   CheckCircle2, 
   Eye,
@@ -19,6 +20,7 @@ export const LivePlayer = ({
   badge, 
   badgeColor = "cyan",
   onOpenUpload,
+  onOpenPhoneCamera,
   availableVideos = [],
   currentSource,
   onSourceChange,
@@ -85,7 +87,13 @@ export const LivePlayer = ({
   const currentVideoObj = availableVideos.find(v => norm(v.path) === norm(streamSource));
   const currentDisplayName = currentVideoObj 
     ? currentVideoObj.name 
-    : (streamSource === 'webcam' ? 'Live Webcam' : (streamSource === 'sample' ? 'Default Demo Video' : 'Custom Video Feed'));
+    : (streamSource === 'webcam' || streamSource === '0' 
+        ? '💻 Built-in / USB Camera 0' 
+        : (streamSource === '1' 
+            ? '📱 Phone Camera (USB / Camera 1)' 
+            : (streamSource.startsWith('http') || streamSource.startsWith('rtsp') 
+                ? `📱 Phone Live Stream (${streamSource})` 
+                : (streamSource === 'sample' ? 'Default Demo Video' : 'Custom Video Feed'))));
 
   return (
     <div className="bg-[#0f1422] rounded-2xl border border-slate-800/90 shadow-xl overflow-hidden flex flex-col">
@@ -102,20 +110,32 @@ export const LivePlayer = ({
           </span>
         </div>
 
-        {/* Video Source Select */}
-        <div className="flex items-center space-x-2">
+        {/* Action Controls */}
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
           <select
             value={streamSource}
             onChange={(e) => handleSourceSelect(e.target.value)}
-            className="text-xs bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 focus:outline-none focus:border-cyan-500 max-w-[220px] truncate"
+            className="text-xs bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 focus:outline-none focus:border-cyan-500 max-w-[200px] truncate"
           >
             <option value="sample">📹 Default Footage</option>
-            <option value="webcam">🎥 Live Webcam</option>
+            <option value="0">💻 Built-in / Camera 0</option>
+            <option value="1">📱 Phone USB / Camera 1</option>
             {availableVideos.map((v, idx) => (
               <option key={idx} value={v.path}>{v.name}</option>
             ))}
           </select>
 
+          {/* Connect Phone Camera Button */}
+          <button
+            onClick={() => onOpenPhoneCamera(channelId)}
+            title="Connect Phone Camera via Wi-Fi or USB Cable"
+            className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Phone Camera</span>
+          </button>
+
+          {/* Upload Video Button */}
           <button
             onClick={() => onOpenUpload(channelId)}
             title="Upload Custom Video"

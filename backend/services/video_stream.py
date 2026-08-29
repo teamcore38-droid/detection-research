@@ -60,14 +60,43 @@ class StreamChannel:
         if proximity is not None:
             self.proximity_threshold = proximity
 
+    def _is_live_stream(self, src):
+        if str(src).lower() in ["webcam", "camera_0", "camera 0", "0", "camera_1", "camera 1", "1", "camera_2", "2"]:
+            return True
+        if str(src).isdigit():
+            return True
+        if isinstance(src, str) and (src.startswith("http://") or src.startswith("https://") or src.startswith("rtsp://")):
+            return True
+        return False
+
     def _open_capture(self):
-        src = 0 if self.source == "webcam" else self.source
-        if self.source != "webcam" and not os.path.exists(str(self.source)):
-            print(f"[Warning] Source not found: {self.source}, falling back to default")
+        src = self.source
+        
+        # 1. Check camera indices (USB webcam, DroidCam USB, built-in camera)
+        if str(src).lower() in ["webcam", "camera_0", "camera 0", "0"]:
+            src = 0
+        elif str(src).lower() in ["camera_1", "camera 1", "1", "phone_usb"]:
+            src = 1
+        elif str(src).lower() in ["camera_2", "camera 2", "2"]:
+            src = 2
+        elif str(src).isdigit():
+            src = int(src)
+        # 2. Check IP camera / phone Wi-Fi stream URLs
+        elif isinstance(src, str) and (src.startswith("http://") or src.startswith("https://") or src.startswith("rtsp://")):
+            src = src.strip()
+        # 3. Check if local video file exists, otherwise fallback to default
+        elif not os.path.exists(str(src)):
+            print(f"[Warning] Source not found: {src}, falling back to default")
             src = DEFAULT_DROWNING_VIDEO if self.channel_type == "DROWNING" else DEFAULT_ANIMAL_HUMAN_VIDEO
             self.source = src
             
         cap = cv2.VideoCapture(src)
+        # Low buffer for live feeds to prevent lag
+        if self._is_live_stream(self.source):
+            try:
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            except Exception:
+                pass
         return cap
 
     def _capture_loop(self):
@@ -83,6 +112,7 @@ class StreamChannel:
         frame_delay = 1.0 / (fps if fps and fps > 5 and fps < 60 else 25.0)
 
         current_active_source = self.source
+        is_live = self._is_live_stream(self.source)
 
         while self.is_running:
             start_t = time.time()
@@ -92,6 +122,7 @@ class StreamChannel:
                 cap.release()
                 cap = self._open_capture()
                 current_active_source = self.source
+                is_live = self._is_live_stream(self.source)
                 if not cap.isOpened():
                     time.sleep(0.3)
                     continue
@@ -99,8 +130,8 @@ class StreamChannel:
             ret, frame = cap.read()
             
             if not ret:
-                # Video ended -> loop back smoothly
-                if self.source != "webcam":
+                # If reading offline video file, loop back to start smoothly
+                if not is_live:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     ret, frame = cap.read()
                     if not ret:
@@ -111,6 +142,7 @@ class StreamChannel:
                             time.sleep(0.1)
                             continue
                 else:
+                    # For live phone/webcam stream, wait briefly before retrying
                     time.sleep(0.1)
                     continue
 

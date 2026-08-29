@@ -8,6 +8,7 @@ import { IncidentLog } from './components/IncidentLog';
 import { SnapshotModal } from './components/SnapshotModal';
 import { SettingsModal } from './components/SettingsModal';
 import { UploadModal } from './components/UploadModal';
+import { PhoneCameraModal } from './components/PhoneCameraModal';
 import { EmergencyBuzzer } from './components/EmergencyBuzzer';
 import { useAlertWebSocket, buzzer } from './hooks/useWebSocket';
 import { getAlerts, getAlertStats, getAvailableVideos, getStreamStats, controlStream } from './services/api';
@@ -24,6 +25,7 @@ export default function App() {
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [uploadChannel, setUploadChannel] = useState(null);
+  const [phoneCameraChannel, setPhoneCameraChannel] = useState(null);
   const [availableVideos, setAvailableVideos] = useState([]);
 
   // Active video source state for each channel
@@ -95,7 +97,7 @@ export default function App() {
       setActiveBuzzerAlert(newAlert);
       setIsBuzzerActive(true);
       if (isAudioEnabled) {
-        buzzer.start(); // Continuously plays "beep-beep" until user clicks stop
+        buzzer.start();
       }
     } else if (newAlert.threat_level === 'WARNING' && isAudioEnabled && !isBuzzerActive) {
       buzzer.playWarningChime();
@@ -132,9 +134,18 @@ export default function App() {
     }));
   };
 
+  // Handle phone camera connection
+  const handlePhoneCameraConnected = (sourceToUse, targetCh) => {
+    const ch = targetCh || (activeTab === 'drowning' ? 'drowning' : 'animal_human');
+    setChannelSources((prev) => ({
+      ...prev,
+      [ch]: sourceToUse,
+    }));
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#070a11] text-slate-100 relative">
-      {/* Emergency Buzzer Banner (Active when critical signal appears) */}
+      {/* Emergency Buzzer Banner */}
       {isBuzzerActive && activeBuzzerAlert && (
         <EmergencyBuzzer
           alert={activeBuzzerAlert}
@@ -172,6 +183,7 @@ export default function App() {
                 currentSource={channelSources.animal_human}
                 onSourceChange={(src) => setChannelSources(prev => ({ ...prev, animal_human: src }))}
                 onOpenUpload={(ch) => setUploadChannel(ch || 'animal_human')}
+                onOpenPhoneCamera={(ch) => setPhoneCameraChannel(ch || 'animal_human')}
                 stats={animalHumanStats}
               />
             </div>
@@ -201,6 +213,7 @@ export default function App() {
                 currentSource={channelSources.drowning}
                 onSourceChange={(src) => setChannelSources(prev => ({ ...prev, drowning: src }))}
                 onOpenUpload={(ch) => setUploadChannel(ch || 'drowning')}
+                onOpenPhoneCamera={(ch) => setPhoneCameraChannel(ch || 'drowning')}
                 stats={drowningStats}
               />
             </div>
@@ -230,6 +243,7 @@ export default function App() {
                 currentSource={channelSources.animal_human}
                 onSourceChange={(src) => setChannelSources(prev => ({ ...prev, animal_human: src }))}
                 onOpenUpload={(ch) => setUploadChannel(ch || 'animal_human')}
+                onOpenPhoneCamera={(ch) => setPhoneCameraChannel(ch || 'animal_human')}
                 stats={animalHumanStats}
               />
               <LivePlayer
@@ -241,6 +255,7 @@ export default function App() {
                 currentSource={channelSources.drowning}
                 onSourceChange={(src) => setChannelSources(prev => ({ ...prev, drowning: src }))}
                 onOpenUpload={(ch) => setUploadChannel(ch || 'drowning')}
+                onOpenPhoneCamera={(ch) => setPhoneCameraChannel(ch || 'drowning')}
                 stats={drowningStats}
               />
             </div>
@@ -291,6 +306,15 @@ export default function App() {
           channelId={uploadChannel}
           onClose={() => setUploadChannel(null)}
           onUploadSuccess={handleUploadSuccess}
+        />
+      )}
+
+      {/* Phone Camera Connect Modal */}
+      {phoneCameraChannel && (
+        <PhoneCameraModal
+          channelId={phoneCameraChannel}
+          onClose={() => setPhoneCameraChannel(null)}
+          onConnected={handlePhoneCameraConnected}
         />
       )}
     </div>
