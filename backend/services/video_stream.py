@@ -35,12 +35,6 @@ class StreamChannel:
         self.conf_threshold_2 = 0.50
         self.proximity_threshold = 220
 
-        # Background inference caching for ultra-smooth 30fps live video
-        self.latest_raw_frame = None
-        self.cached_annotated_frame = None
-        self.cached_stats = {}
-        self.inference_thread = None
-
     def start(self):
         if self.is_running:
             return
@@ -57,7 +51,6 @@ class StreamChannel:
         with self.lock:
             self.source = str(new_source).strip()
             self.latest_encoded_frame = None
-            self.latest_raw_frame = None
 
     def update_settings(self, conf1: float = None, conf2: float = None, proximity: float = None):
         if conf1 is not None:
@@ -76,6 +69,17 @@ class StreamChannel:
         if src_str.startswith("http://") or src_str.startswith("https://") or src_str.startswith("rtsp://"):
             return True
         return False
+
+    def _normalize_stream_url(self, url: str) -> str:
+        u = str(url).strip()
+        # If user entered http://10.x.x.x:8080 or http://10.x.x.x:4747 without /video endpoint
+        if u.startswith("http://") or u.startswith("https://"):
+            if not u.endswith("/video") and not u.endswith("/mjpegfeed") and not u.endswith(".mjpg"):
+                if u.endswith("/"):
+                    u = u + "video"
+                else:
+                    u = u + "/video"
+        return u
 
     def _open_capture(self):
         src = self.source
@@ -112,10 +116,11 @@ class StreamChannel:
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             return cap
             
-        # 2. IP camera / Phone Wi-Fi Stream URL (e.g. http://192.168.x.x:4747/video)
+        # 2. IP camera / Phone Wi-Fi Stream URL (e.g. http://10.134.93.16:8080/video)
         elif str(src).startswith("http://") or str(src).startswith("https://") or str(src).startswith("rtsp://"):
-            print(f"[{self.channel_id}] Opening Network IP Stream: {src}")
-            cap = cv2.VideoCapture(str(src).strip())
+            norm_url = self._normalize_stream_url(str(src))
+            print(f"[{self.channel_id}] Opening Network IP Stream: {norm_url}")
+            cap = cv2.VideoCapture(norm_url)
             try:
                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             except Exception:
@@ -169,7 +174,6 @@ class StreamChannel:
             ret, frame = cap.read()
             
             if not ret:
-                # Video file reached end -> rewind loop smoothly
                 if not is_live:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     ret, frame = cap.read()
@@ -181,11 +185,10 @@ class StreamChannel:
                             time.sleep(0.05)
                             continue
                 else:
-                    # Live camera stream frame dropped -> wait brief instant
                     time.sleep(0.03)
                     continue
 
-            # Resize HD frames slightly for blazing fast real-time inference on CPU
+            # Resize HD frames slightly for fast inference on CPU
             h, w = frame.shape[:2]
             if w > 960:
                 frame = cv2.resize(frame, (960, int(h * 960 / w)))
@@ -252,7 +255,6 @@ class StreamChannel:
                     self.latest_encoded_frame = buffer.tobytes()
                     self.latest_stats = stats
 
-            # Rate limiting: For live camera streams, yield immediately without extra sleep
             if not is_live:
                 elapsed = time.time() - start_t
                 sleep_time = max(0.01, frame_delay - elapsed)
