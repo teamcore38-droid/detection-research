@@ -30,10 +30,14 @@ An autonomous, real-time Computer Vision surveillance, rescue, and early-warning
 ### 2. 🐾 Wildlife Perimeter & Animal-Human Threat Detection
 - **Models:** `Animaldetect.pt` (12 Animal classes) + `Human.pt` (Person class)
 - **Animal Classes (12):** `Bear`, `Buffalo`, `Camel`, `Cat`, `Cow`, `Deer`, `Dog`, `Donkey`, `Elephant`, `Leopard`, `Lion`, `Tiger`
-- **Threat Logic Engine:**
+- **Rigorous Spatial-Metric Threat Engine:**
+  - **Actual Position Tracking:** Evaluates separation using the actual detected coordinates of both the animal $(C_{animal})$ and human $(C_{human})$ bounding boxes in the 2D camera plane (neither entity is treated as 0 pixels / origin).
+  - **Edge-to-Edge Boundary Clearance ($d_{edge}$):** Measures the physical clearance between outer bounding box perimeters ($\Delta x, \Delta y$). Direct physical contact occurs at $d_{edge} = 0.0\text{ m}$.
+  - **Perspective Metric Distance (Meters):** Dynamically scales pixel distance to real-world meters ($m$) via camera perspective geometry using the anatomical human height reference ($H_{human} = 1.70\text{ m}$):
+    $$\text{Scale } S = \frac{1.70\text{ m}}{h_{human\_px}} \quad \Longrightarrow \quad d_{meters} = d_{px} \times S$$
   - **Status 1 (Wild Animal Alone):** Generates **`⚠️ WARNING: Wild Animal Detected`** (Amber Alert).
-  - **Status 2 (Animal + Human in Shared Vicinity):** Dynamically calculates Euclidean distance between person and animal bounding boxes.
-  - **Status 3 (Close Proximity Attack Danger):** When distance $\le$ threshold (e.g. 220px), escalates to **`🚨 CRITICAL: POTENTIAL ANIMAL ATTACK / PROXIMITY RISK`** (Flashing Red Alert, emergency buzzer, frame snapshot).
+  - **Status 2 (Animal + Human in Shared Vicinity):** Dynamically measures distance in meters and feet (e.g. `4.2m / 13.8ft`).
+  - **Status 3 (Close Proximity Attack Danger):** When real-world distance $\le 3.5\text{ m}$ or physical edge gap $\le 1.5\text{ m}$, escalates to **`🚨 CRITICAL: POTENTIAL ANIMAL ATTACK / PROXIMITY RISK`** (Flashing Red Alert, emergency buzzer, frame snapshot).
 
 ### 3. 🚨 Continuous Emergency Buzzer Alarm ("Beep-Beep")
 - Continuous rhythmic **"Beep-Beep... Beep-Beep"** emergency siren from the speaker via Web Audio API whenever a Critical signal is triggered.

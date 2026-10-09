@@ -37,11 +37,11 @@ export const Header = ({
   }, []);
 
   return (
-    <header className="border-b border-slate-800/80 bg-[#0c111d]/90 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3">
+    <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3 shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Logo & System Brand */}
         <div className="flex items-center space-x-3">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20">
+          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-600 to-blue-700 text-white shadow-md shadow-cyan-600/30">
             <ShieldAlert className="w-6 h-6" />
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
@@ -49,26 +49,26 @@ export const Header = ({
             </span>
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-lg font-black tracking-tight text-slate-900 flex items-center gap-2">
               VISION SENTRY AI
-              <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/60">
+              <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-cyan-50 text-cyan-800 border border-cyan-300">
                 PRO v1.0
               </span>
             </h1>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-600 font-medium">
               Autonomous Drowning & Animal-Human Threat Surveillance
             </p>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center bg-slate-900/80 p-1 rounded-xl border border-slate-800 flex-wrap">
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 flex-wrap">
           <button
             onClick={() => setActiveTab('animal_human')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'animal_human'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
             }`}
           >
             <Compass className="w-3.5 h-3.5" />
@@ -77,10 +77,10 @@ export const Header = ({
 
           <button
             onClick={() => setActiveTab('drowning')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'drowning'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                ? 'bg-cyan-100 text-cyan-900 border border-cyan-300 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
             }`}
           >
             <LifeBuoy className="w-3.5 h-3.5" />
@@ -89,10 +89,10 @@ export const Header = ({
 
           <button
             onClick={() => setActiveTab('dual')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'dual'
-                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                ? 'bg-purple-100 text-purple-900 border border-purple-300 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
             }`}
           >
             <Activity className="w-3.5 h-3.5" />
@@ -101,15 +101,15 @@ export const Header = ({
 
           <button
             onClick={() => setActiveTab('logs')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'logs'
-                ? 'bg-slate-700 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                ? 'bg-white text-slate-900 border border-slate-300 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
             }`}
           >
             <span>Incident Archives</span>
             {stats && stats.critical > 0 && (
-              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+              <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
                 {stats.critical}
               </span>
             )}
@@ -122,7 +122,7 @@ export const Header = ({
           {isBuzzerActive && (
             <button
               onClick={onStopBuzzer}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold animate-pulse shadow-lg shadow-red-600/50 transition border border-yellow-300"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-extrabold animate-pulse shadow-lg shadow-red-600/30 transition border-2 border-yellow-300"
               title="Click or press Space to silence buzzer"
             >
               <BellOff className="w-4 h-4" />
@@ -136,8 +136,8 @@ export const Header = ({
             title={isAudioEnabled ? "Audio Sirens Enabled" : "Audio Muted"}
             className={`p-2 rounded-lg border transition-all ${
               isAudioEnabled
-                ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
-                : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-400'
+                ? 'bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100 shadow-sm'
+                : 'bg-slate-100 border-slate-300 text-slate-500 hover:text-slate-700'
             }`}
           >
             {isAudioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
@@ -147,30 +147,30 @@ export const Header = ({
           <button
             onClick={onOpenSettings}
             title="Model & Sensitivity Settings"
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-all"
+            className="p-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 shadow-sm transition-all"
           >
             <Sliders className="w-4 h-4" />
           </button>
 
           {/* WebSocket Status */}
-          <div className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800">
+          <div className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300">
             {isConnected ? (
               <>
-                <Wifi className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                <span className="text-[11px] font-mono text-emerald-400 font-semibold">LIVE CONNECTED</span>
+                <Wifi className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                <span className="text-[11px] font-mono text-emerald-800 font-bold">LIVE CONNECTED</span>
               </>
             ) : (
               <>
-                <WifiOff className="w-3.5 h-3.5 text-rose-400" />
-                <span className="text-[11px] font-mono text-rose-400 font-semibold">OFFLINE</span>
+                <WifiOff className="w-3.5 h-3.5 text-rose-600" />
+                <span className="text-[11px] font-mono text-rose-800 font-bold">OFFLINE</span>
               </>
             )}
           </div>
 
           {/* Clock */}
-          <div className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 font-mono">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs font-semibold">{timeStr}</span>
+          <div className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-800 font-mono font-bold">
+            <Clock className="w-3.5 h-3.5 text-slate-600" />
+            <span className="text-xs font-bold">{timeStr}</span>
           </div>
         </div>
       </div>

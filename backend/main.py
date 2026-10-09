@@ -225,6 +225,7 @@ class SettingsUpdateRequest(BaseModel):
     animal_confidence: Optional[float] = None
     human_confidence: Optional[float] = None
     proximity_threshold: Optional[float] = None
+    proximity_threshold_meters: Optional[float] = None
 
 @app.post("/api/settings")
 async def update_settings(req: SettingsUpdateRequest):
@@ -233,7 +234,8 @@ async def update_settings(req: SettingsUpdateRequest):
         ch.update_settings(
             conf1=req.drowning_confidence if ch.channel_type == "DROWNING" else req.animal_confidence,
             conf2=req.human_confidence,
-            proximity=req.proximity_threshold
+            proximity=req.proximity_threshold,
+            proximity_meters=req.proximity_threshold_meters
         )
     elif req.channel_id == "all":
         if "drowning" in video_stream_service.channels:
@@ -244,7 +246,8 @@ async def update_settings(req: SettingsUpdateRequest):
             video_stream_service.channels["animal_human"].update_settings(
                 conf1=req.animal_confidence,
                 conf2=req.human_confidence,
-                proximity=req.proximity_threshold
+                proximity=req.proximity_threshold,
+                proximity_meters=req.proximity_threshold_meters
             )
             
     return {"status": "success", "message": "Settings updated"}

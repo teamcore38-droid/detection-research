@@ -23,16 +23,23 @@ def init_db():
             detected_classes TEXT NOT NULL,
             confidence REAL NOT NULL,
             distance_pixels REAL,
+            distance_meters REAL,
             snapshot_filename TEXT,
             is_acknowledged INTEGER DEFAULT 0
         )
     """)
+    # Check if distance_meters column exists for existing DB files
+    cursor.execute("PRAGMA table_info(alerts)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if "distance_meters" not in columns:
+        cursor.execute("ALTER TABLE alerts ADD COLUMN distance_meters REAL")
     conn.commit()
     conn.close()
 
 def insert_alert(channel: str, alert_type: str, threat_level: str, title: str, 
                  message: str, detected_classes: list, confidence: float, 
-                 distance_pixels: float = None, snapshot_filename: str = None) -> dict:
+                 distance_pixels: float = None, distance_meters: float = None,
+                 snapshot_filename: str = None) -> dict:
     conn = get_connection()
     cursor = conn.cursor()
     now_str = datetime.now().isoformat()
@@ -40,10 +47,10 @@ def insert_alert(channel: str, alert_type: str, threat_level: str, title: str,
     
     cursor.execute("""
         INSERT INTO alerts (timestamp, channel, type, threat_level, title, message, 
-                            detected_classes, confidence, distance_pixels, snapshot_filename)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            detected_classes, confidence, distance_pixels, distance_meters, snapshot_filename)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (now_str, channel, alert_type, threat_level, title, message, 
-          classes_json, float(confidence), distance_pixels, snapshot_filename))
+          classes_json, float(confidence), distance_pixels, distance_meters, snapshot_filename))
     
     alert_id = cursor.lastrowid
     conn.commit()
@@ -60,6 +67,7 @@ def insert_alert(channel: str, alert_type: str, threat_level: str, title: str,
         "detected_classes": detected_classes,
         "confidence": confidence,
         "distance_pixels": distance_pixels,
+        "distance_meters": distance_meters,
         "snapshot_filename": snapshot_filename,
         "is_acknowledged": False
     }

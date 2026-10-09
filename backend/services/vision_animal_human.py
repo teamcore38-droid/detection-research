@@ -8,6 +8,10 @@ from backend.config import (
     DEFAULT_CONF_ANIMAL, 
     DEFAULT_CONF_HUMAN,
     DEFAULT_PROXIMITY_PIXEL_THRESHOLD,
+    DEFAULT_PROXIMITY_METERS_THRESHOLD,
+    DEFAULT_CRITICAL_EDGE_METERS_THRESHOLD,
+    DEFAULT_WARNING_METERS_THRESHOLD,
+    DEFAULT_HUMAN_REAL_HEIGHT_METERS,
     HIGH_THREAT_ANIMALS,
     MEDIUM_THREAT_ANIMALS
 )
@@ -25,6 +29,70 @@ def calculate_iou(box1, box2):
 
     iou = interArea / float(boxAArea + boxBArea - interArea)
     return iou
+
+def calculate_pairwise_spatial_metrics(animal: dict, human: dict, human_ref_height_m: float = DEFAULT_HUMAN_REAL_HEIGHT_METERS):
+    """
+    Calculates comprehensive spatial metrics between an animal and a human using their actual detected positions:
+    1. Actual detected centers: (ax, ay) and (hx, hy)
+    2. Centroid Euclidean distance in pixels: d_centroid_px = sqrt((ax - hx)^2 + (ay - hy)^2)
+    3. Edge-to-Edge physical boundary clearance gap (closest points on bounding boxes):
+       dx = max(0, max(hx1 - ax2, ax1 - hx2))
+       dy = max(0, max(hy1 - ay2, ay1 - hy2))
+       d_edge_px = sqrt(dx^2 + dy^2)
+       (Direct physical contact occurs when d_edge_px == 0)
+    4. Ground contact foot-point / base-point distance:
+       abase = (ax, ay2)
+       hbase = (hx, hy2)
+       d_ground_px = sqrt((abase[0] - hbase[0])^2 + (abase[1] - hbase[1])^2)
+    5. Perspective Depth Scaling:
+       human_height_px = max(20, hy2 - hy1)
+       scale_m_per_px = human_ref_height_m / human_height_px
+    6. Metric distance conversion (meters):
+       d_centroid_m = d_centroid_px * scale_m_per_px
+       d_edge_m = d_edge_px * scale_m_per_px
+       d_ground_m = d_ground_px * scale_m_per_px
+    """
+    ax1, ay1, ax2, ay2 = animal["bbox"]
+    hx1, hy1, hx2, hy2 = human["bbox"]
+    
+    acx, acy = animal["center"]
+    hcx, hcy = human["center"]
+    
+    # 1. Centroid distance (pixels)
+    d_centroid_px = math.hypot(acx - hcx, acy - hcy)
+    
+    # 2. Edge-to-edge physical boundary clearance (pixels)
+    dx = max(0, max(hx1 - ax2, ax1 - hx2))
+    dy = max(0, max(hy1 - ay2, ay1 - hy2))
+    d_edge_px = math.hypot(dx, dy)
+    
+    # 3. Ground contact foot-point distance (pixels)
+    abase = (acx, ay2)
+    hbase = (hcx, hy2)
+    d_ground_px = math.hypot(abase[0] - hbase[0], abase[1] - hbase[1])
+    
+    # 4. Perspective depth scale (meters per pixel)
+    human_height_px = max(20, hy2 - hy1)
+    scale_m_per_px = human_ref_height_m / human_height_px
+    
+    # 5. Real-world metric distances (meters)
+    d_centroid_m = d_centroid_px * scale_m_per_px
+    d_edge_m = d_edge_px * scale_m_per_px
+    d_ground_m = d_ground_px * scale_m_per_px
+    
+    return {
+        "centroid_distance_px": round(d_centroid_px, 1),
+        "centroid_distance_m": round(d_centroid_m, 2),
+        "edge_distance_px": round(d_edge_px, 1),
+        "edge_distance_m": round(d_edge_m, 2),
+        "ground_distance_px": round(d_ground_px, 1),
+        "ground_distance_m": round(d_ground_m, 2),
+        "scale_m_per_px": round(scale_m_per_px, 5),
+        "animal_pos": (acx, acy),
+        "human_pos": (hcx, hcy),
+        "animal_base": abase,
+        "human_base": hbase
+    }
 
 class TrackedAnimal:
     def __init__(self, track_id: int, bbox: list, cls_name: str, conf: float):
@@ -159,10 +227,12 @@ class AnimalHumanThreatDetector:
     def process_frame(self, frame: np.ndarray, 
                       animal_conf: float = DEFAULT_CONF_ANIMAL, 
                       human_conf: float = DEFAULT_CONF_HUMAN,
-                      proximity_thresh: float = DEFAULT_PROXIMITY_PIXEL_THRESHOLD):
+                      proximity_thresh: float = DEFAULT_PROXIMITY_PIXEL_THRESHOLD,
+                      proximity_thresh_m: float = DEFAULT_PROXIMITY_METERS_THRESHOLD):
         """
         Runs Animal and Human detectors with temporal 80% class persistence tracking,
-        computes proximity, evaluates threat level, and renders HUD.
+        computes real-world metric distance (meters), physical edge clearance gap,
+        and centroid distance using actual detected positions of both subjects.
         """
         annotated = frame.copy()
         h, w, _ = frame.shape
@@ -173,7 +243,7 @@ class AnimalHumanThreatDetector:
         human_results = self.human_model.predict(source=frame, conf=human_conf, verbose=False)
 
         raw_animal_detections = []
-        detected_humans = []
+        raw_human_detections = []
 
         # Process Raw Animal Detections
         for r in animal_results:
@@ -209,36 +279,70 @@ class AnimalHumanThreatDetector:
                 cx = (x1 + x2) // 2
                 cy = (y1 + y2) // 2
 
-                detected_humans.append({
+                raw_human_detections.append({
                     "class": "Person",
                     "confidence": round(conf, 3),
                     "bbox": [x1, y1, x2, y2],
                     "center": (cx, cy)
                 })
 
-        # Determine Threat Level & Proximity
-        min_distance = None
+        # Filter out false positive human detections that directly overlap with animals (duplicate model artifacts)
+        detected_humans = []
+        for hum in raw_human_detections:
+            is_duplicate = False
+            for a in detected_animals:
+                iou = calculate_iou(hum["bbox"], a["bbox"])
+                c_dist = math.hypot(hum["center"][0] - a["center"][0], hum["center"][1] - a["center"][1])
+                if iou > 0.55 and c_dist < 45:
+                    is_duplicate = True
+                    break
+            if not is_duplicate:
+                detected_humans.append(hum)
+
+        # Determine Threat Level & Real-World Proximity
+        closest_metrics = None
         closest_pair = None
+        min_distance = None      # Centroid distance in pixels
+        min_distance_m = None    # Centroid distance in real-world meters
+        min_edge_m = None        # Physical edge-to-edge boundary clearance in meters
+        min_edge_px = None       # Physical edge gap in pixels
         threat_level = "SAFE"
         status_text = "PERIMETER SECURE: NO THREAT"
 
         if detected_animals and detected_humans:
+            # Pairwise spatial distance calculation using actual detected positions
             for a in detected_animals:
                 for hum in detected_humans:
-                    ax, ay = a["center"]
-                    hx, hy = hum["center"]
-                    dist = math.hypot(ax - hx, ay - hy)
+                    metrics = calculate_pairwise_spatial_metrics(a, hum)
                     
-                    if min_distance is None or dist < min_distance:
-                        min_distance = dist
+                    # Track closest pair based on physical proximity (boundary gap first, then centroid)
+                    if closest_metrics is None or metrics["edge_distance_m"] < closest_metrics["edge_distance_m"]:
+                        closest_metrics = metrics
                         closest_pair = (a, hum)
 
-            if min_distance is not None and min_distance <= proximity_thresh:
-                threat_level = "CRITICAL"
-                status_text = f"🚨 CRITICAL: POTENTIAL ATTACK / ANIMAL-HUMAN RISK ({closest_pair[0]['class']} - {int(min_distance)}px)!"
-            else:
-                threat_level = "WARNING"
-                status_text = f"⚠️ CAUTION: Animal and Human in Vicinity ({closest_pair[0]['class']} - {int(min_distance)}px)"
+            if closest_metrics is not None:
+                min_distance = closest_metrics["centroid_distance_px"]
+                min_distance_m = closest_metrics["centroid_distance_m"]
+                min_edge_m = closest_metrics["edge_distance_m"]
+                min_edge_px = closest_metrics["edge_distance_px"]
+                
+                # Critical threat condition:
+                # 1. Real-world centroid distance <= metric threshold (e.g. 3.5m)
+                # 2. OR Physical perimeter boundary gap <= 1.5m (direct contact/collision hazard)
+                # 3. OR Pixel proximity threshold breached
+                is_critical = (
+                    min_distance_m <= proximity_thresh_m or 
+                    min_edge_m <= DEFAULT_CRITICAL_EDGE_METERS_THRESHOLD or 
+                    min_distance <= proximity_thresh
+                )
+                
+                animal_name = closest_pair[0]["class"]
+                if is_critical:
+                    threat_level = "CRITICAL"
+                    status_text = f"🚨 CRITICAL: ATTACK RISK ({animal_name} - {min_distance_m}m / {int(min_distance)}px | Edge Gap: {min_edge_m}m)!"
+                else:
+                    threat_level = "WARNING"
+                    status_text = f"⚠️ CAUTION: Animal and Human in Vicinity ({animal_name} - {min_distance_m}m / {int(min_distance)}px)"
         elif detected_animals:
             threat_level = "WARNING"
             animal_names_str = ", ".join(list(set(a["class"] for a in detected_animals)))
@@ -272,29 +376,40 @@ class AnimalHumanThreatDetector:
             cv2.putText(annotated, label_text, (x1 + 3, y1 - 6),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
-        # Draw Proximity Vector Line
-        if closest_pair is not None:
+        # Draw Proximity Vector Line with actual detected coordinates and metric distance
+        if closest_pair is not None and closest_metrics is not None:
             a, hum = closest_pair
             ax, ay = a["center"]
             hx, hy = hum["center"]
             line_color = (0, 0, 255) if threat_level == "CRITICAL" else (0, 215, 255)
             
+            # Vector line connecting actual detected positions
             cv2.line(annotated, (ax, ay), (hx, hy), line_color, 2 if threat_level == "WARNING" else 4)
-            cv2.circle(annotated, (ax, ay), 5, line_color, -1)
-            cv2.circle(annotated, (hx, hy), 5, line_color, -1)
+            cv2.circle(annotated, (ax, ay), 6, line_color, -1)
+            cv2.circle(annotated, (hx, hy), 6, line_color, -1)
             
+            # Coordinate badges showing actual detected positions (proving animal center != 0 pixels)
+            coord_scale = 0.38
+            cv2.putText(annotated, f"A({ax},{ay})", (ax - 20, max(15, ay - 10)),
+                        cv2.FONT_HERSHEY_SIMPLEX, coord_scale, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(annotated, f"H({hx},{hy})", (hx - 20, max(15, hy - 10)),
+                        cv2.FONT_HERSHEY_SIMPLEX, coord_scale, (255, 255, 255), 1, cv2.LINE_AA)
+            
+            # Midpoint distance label with metric meters and physical edge gap
             mx, my = (ax + hx) // 2, (ay + hy) // 2
-            dist_label = f"Dist: {int(min_distance)}px"
-            (tw, th), _ = cv2.getTextSize(dist_label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            cv2.rectangle(annotated, (mx - tw//2 - 4, my - 12), (mx + tw//2 + 4, my + 6), (20, 20, 20), -1)
-            cv2.putText(annotated, dist_label, (mx - tw//2, my), cv2.FONT_HERSHEY_SIMPLEX, 0.5, line_color, 1, cv2.LINE_AA)
+            dist_label = f"Dist: {min_distance_m:.1f}m ({int(min_distance)}px) | Edge: {min_edge_m:.1f}m"
+            (tw, th), _ = cv2.getTextSize(dist_label, cv2.FONT_HERSHEY_SIMPLEX, 0.48, 1)
+            cv2.rectangle(annotated, (mx - tw//2 - 6, my - 14), (mx + tw//2 + 6, my + 6), (15, 15, 20), -1)
+            cv2.rectangle(annotated, (mx - tw//2 - 6, my - 14), (mx + tw//2 + 6, my + 6), line_color, 1)
+            cv2.putText(annotated, dist_label, (mx - tw//2, my),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 1, cv2.LINE_AA)
 
         # Draw HUD Top Bar
         hud_bg = (0, 0, 180) if threat_level == "CRITICAL" else ((0, 120, 180) if threat_level == "WARNING" else (30, 30, 30))
         cv2.rectangle(annotated, (0, 0), (w, 42), hud_bg, -1)
         cv2.line(annotated, (0, 42), (w, 42), (0, 0, 255) if threat_level == "CRITICAL" else (0, 200, 255), 2)
         
-        cv2.putText(annotated, status_text, (15, 28), cv2.FONT_HERSHEY_DUPLEX, 0.65, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(annotated, status_text, (15, 28), cv2.FONT_HERSHEY_DUPLEX, 0.60, (255, 255, 255), 2, cv2.LINE_AA)
         
         counts_str = f"Animals: {len(detected_animals)} | Humans: {len(detected_humans)}"
         cv2.putText(annotated, counts_str, (w - 280, 27), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (240, 240, 240), 1, cv2.LINE_AA)
@@ -309,6 +424,15 @@ class AnimalHumanThreatDetector:
             "animals_count": len(detected_animals),
             "humans_count": len(detected_humans),
             "min_distance": round(min_distance, 1) if min_distance is not None else None,
+            "distance_meters": round(min_distance_m, 2) if min_distance_m is not None else None,
+            "edge_distance_meters": round(min_edge_m, 2) if min_edge_m is not None else None,
+            "edge_distance_pixels": round(min_edge_px, 1) if min_edge_px is not None else None,
+            "ground_distance_meters": round(closest_metrics["ground_distance_m"], 2) if closest_metrics is not None else None,
+            "closest_pair": {
+                "animal": closest_pair[0]["class"],
+                "animal_pos": closest_pair[0]["center"],
+                "human_pos": closest_pair[1]["center"]
+            } if closest_pair is not None else None,
             "detected_animals": [a["class"] for a in detected_animals],
             "detected_classes": list(set([a["class"] for a in detected_animals] + (["Person"] if detected_humans else []))),
             "max_confidence": max([a["confidence"] for a in detected_animals] + [h["confidence"] for h in detected_humans] + [0.0])

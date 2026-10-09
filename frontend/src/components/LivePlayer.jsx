@@ -94,16 +94,16 @@ export const LivePlayer = ({
                 : (streamSource === 'sample' ? 'Default Demo Video' : 'Custom Video Feed'))));
 
   return (
-    <div className="bg-[#0f1422] rounded-2xl border border-slate-800/90 shadow-xl overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-md overflow-hidden flex flex-col h-full">
       {/* Video Header Bar */}
-      <div className="px-4 py-3 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+      <div className="px-4 py-3 bg-slate-100/90 border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center space-x-2.5">
           <div className="flex h-2.5 w-2.5 relative">
-            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isPlaying ? 'bg-emerald-400' : 'bg-slate-500'}`}></span>
-            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPlaying ? 'bg-emerald-500' : 'bg-slate-500'}`}></span>
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isPlaying ? 'bg-emerald-400' : 'bg-slate-400'}`}></span>
+            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPlaying ? 'bg-emerald-600' : 'bg-slate-500'}`}></span>
           </div>
-          <h2 className="text-sm font-bold text-white tracking-wide uppercase">{title}</h2>
-          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border bg-${badgeColor}-500/10 text-${badgeColor}-400 border-${badgeColor}-500/30`}>
+          <h2 className="text-sm font-extrabold text-slate-900 tracking-wide uppercase">{title}</h2>
+          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border bg-${badgeColor}-100 text-${badgeColor}-900 border-${badgeColor}-300`}>
             {badge}
           </span>
         </div>
@@ -113,7 +113,7 @@ export const LivePlayer = ({
           <select
             value={streamSource}
             onChange={(e) => handleSourceSelect(e.target.value)}
-            className="text-xs bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 focus:outline-none focus:border-cyan-500 max-w-[200px] truncate"
+            className="text-xs bg-white text-slate-900 font-semibold border border-slate-300 rounded-lg px-2.5 py-1 focus:outline-none focus:border-cyan-600 max-w-[200px] truncate shadow-sm"
           >
             <option value="sample">📹 Default Footage</option>
             <option value="0">💻 Live Camera 0 (Webcam)</option>
@@ -127,7 +127,7 @@ export const LivePlayer = ({
           <button
             onClick={() => onOpenPhoneCamera(channelId)}
             title="Connect Live Camera or Phone (Wi-Fi / USB)"
-            className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition"
+            className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow transition"
           >
             <Camera className="w-3.5 h-3.5" />
             <span>Connect Camera</span>
@@ -137,7 +137,7 @@ export const LivePlayer = ({
           <button
             onClick={() => onOpenUpload(channelId)}
             title="Upload Custom Video"
-            className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow transition"
+            className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow transition"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Upload Video</span>
@@ -146,7 +146,7 @@ export const LivePlayer = ({
       </div>
 
       {/* Video Viewport Container */}
-      <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden group min-h-[300px]">
+      <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden group min-h-[300px] flex-1">
         {isPlaying ? (
           <img
             key={streamKey}
@@ -208,15 +208,15 @@ export const LivePlayer = ({
       </div>
 
       {/* Video Footer Metadata & Quick Stats */}
-      <div className="px-4 py-2.5 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+      <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-700 font-medium">
         <div className="flex items-center space-x-4 font-mono truncate">
-          <span>FPS: <strong className="text-slate-200">~25-30</strong></span>
-          <span className="truncate">Active Source: <strong className="text-cyan-400">{currentDisplayName}</strong></span>
+          <span>FPS: <strong className="text-slate-900 font-bold">~25-30</strong></span>
+          <span className="truncate">Active Source: <strong className="text-cyan-700 font-bold">{currentDisplayName}</strong></span>
         </div>
         <div className="flex items-center space-x-2 shrink-0">
           <button
             onClick={handleRestart}
-            className="flex items-center space-x-1 text-cyan-400 hover:text-cyan-300 font-semibold"
+            className="flex items-center space-x-1 text-cyan-700 hover:text-cyan-900 font-bold"
           >
             <RotateCcw className="w-3 h-3" />
             <span>Reset Loop</span>

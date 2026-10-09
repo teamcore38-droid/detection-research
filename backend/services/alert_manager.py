@@ -45,7 +45,8 @@ class AlertManager:
 
     def trigger_alert_sync(self, channel: str, alert_type: str, threat_level: str,
                            title: str, message: str, detected_classes: list,
-                           confidence: float, frame=None, distance_pixels: float = None) -> dict:
+                           confidence: float, frame=None, distance_pixels: float = None,
+                           distance_meters: float = None) -> dict:
         debounce_key = f"{channel}_{alert_type}_{threat_level}"
         now = time.time()
         
@@ -77,6 +78,7 @@ class AlertManager:
             detected_classes=detected_classes,
             confidence=confidence,
             distance_pixels=distance_pixels,
+            distance_meters=distance_meters,
             snapshot_filename=snapshot_filename
         )
 

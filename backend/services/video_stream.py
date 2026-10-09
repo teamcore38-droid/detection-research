@@ -34,6 +34,7 @@ class StreamChannel:
         self.conf_threshold_1 = 0.40
         self.conf_threshold_2 = 0.50
         self.proximity_threshold = 220
+        self.proximity_threshold_meters = 3.5
 
     def start(self):
         if self.is_running:
@@ -52,13 +53,16 @@ class StreamChannel:
             self.source = str(new_source).strip()
             self.latest_encoded_frame = None
 
-    def update_settings(self, conf1: float = None, conf2: float = None, proximity: float = None):
+    def update_settings(self, conf1: float = None, conf2: float = None, proximity: float = None, proximity_meters: float = None):
         if conf1 is not None:
             self.conf_threshold_1 = conf1
         if conf2 is not None:
             self.conf_threshold_2 = conf2
         if proximity is not None:
             self.proximity_threshold = proximity
+        if proximity_meters is not None:
+            self.proximity_threshold_meters = proximity_meters
+
 
     def _is_live_stream(self, src):
         src_str = str(src).lower().strip()
@@ -217,20 +221,30 @@ class StreamChannel:
                         frame, 
                         animal_conf=self.conf_threshold_1,
                         human_conf=self.conf_threshold_2,
-                        proximity_thresh=self.proximity_threshold
+                        proximity_thresh=self.proximity_threshold,
+                        proximity_thresh_m=self.proximity_threshold_meters
                     )
                     
                     threat_level = stats.get("threat_level")
                     if threat_level == "CRITICAL":
+                        dist_m = stats.get("distance_meters")
+                        dist_px = stats.get("min_distance")
+                        edge_m = stats.get("edge_distance_meters")
+                        
+                        dist_desc = f"{dist_m}m ({int(dist_px)}px)" if dist_m is not None else f"{int(dist_px)}px"
+                        if edge_m is not None:
+                            dist_desc += f" [Edge Gap: {edge_m}m]"
+
                         alert_manager.trigger_alert_sync(
                             channel="ANIMAL_HUMAN_SECURITY",
                             alert_type="ANIMAL_ATTACK_RISK",
                             threat_level="CRITICAL",
                             title="🚨 Animal Attack / Proximity Alert",
-                            message=f"Wild animal ({stats['detected_animals']}) dangerously close to human ({stats.get('min_distance')}px)!",
+                            message=f"Wild animal ({', '.join(stats.get('detected_animals', []))}) dangerously close to human ({dist_desc})!",
                             detected_classes=stats.get("detected_classes", []),
                             confidence=stats["max_confidence"],
-                            distance_pixels=stats.get("min_distance"),
+                            distance_pixels=dist_px,
+                            distance_meters=dist_m,
                             frame=annotated_frame
                         )
                     elif threat_level == "WARNING" and stats.get("detected_animals"):

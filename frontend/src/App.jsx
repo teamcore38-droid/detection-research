@@ -10,6 +10,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { UploadModal } from './components/UploadModal';
 import { PhoneCameraModal } from './components/PhoneCameraModal';
 import { EmergencyBuzzer } from './components/EmergencyBuzzer';
+import { Footer } from './components/Footer';
 import { useAlertWebSocket, buzzer } from './hooks/useWebSocket';
 import { getAlerts, getAlertStats, getAvailableVideos, getStreamStats, controlStream } from './services/api';
 
@@ -144,7 +145,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070a11] text-slate-100 relative">
+    <div className="min-h-screen flex flex-col bg-slate-100/70 text-slate-900 relative">
       {/* Emergency Buzzer Banner */}
       {isBuzzerActive && activeBuzzerAlert && (
         <EmergencyBuzzer
@@ -172,61 +173,73 @@ export default function App() {
       }`}>
         {/* VIEW 1: Wildlife Threat Surveillance */}
         {activeTab === 'animal_human' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <LivePlayer
-                channelId="animal_human"
-                title="Perimeter Wildlife & Human Threat Surveillance Feed"
-                badge="Active Channel 2"
-                badgeColor="amber"
-                availableVideos={availableVideos}
-                currentSource={channelSources.animal_human}
-                onSourceChange={(src) => setChannelSources(prev => ({ ...prev, animal_human: src }))}
-                onOpenUpload={(ch) => setUploadChannel(ch || 'animal_human')}
-                onOpenPhoneCamera={(ch) => setPhoneCameraChannel(ch || 'animal_human')}
-                stats={animalHumanStats}
-              />
+          <div className="space-y-6">
+            {/* Top Row: Surveillance Feed and Threat & Proximity Radar Side-by-Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              <div className="lg:col-span-7 flex flex-col">
+                <LivePlayer
+                  channelId="animal_human"
+                  title="Perimeter Wildlife & Human Threat Surveillance Feed"
+                  badge="Active Channel 2"
+                  badgeColor="amber"
+                  availableVideos={availableVideos}
+                  currentSource={channelSources.animal_human}
+                  onSourceChange={(src) => setChannelSources(prev => ({ ...prev, animal_human: src }))}
+                  onOpenUpload={(ch) => setUploadChannel(ch || 'animal_human')}
+                  onOpenPhoneCamera={(ch) => setPhoneCameraChannel(ch || 'animal_human')}
+                  stats={animalHumanStats}
+                />
+              </div>
+              <div className="lg:col-span-5 flex flex-col">
+                <ThreatRadar stats={animalHumanStats} />
+              </div>
             </div>
-            <div className="space-y-6">
-              <ThreatRadar stats={animalHumanStats} />
-              <AlertCenter
-                alerts={alerts.filter(a => a.channel === 'ANIMAL_HUMAN_SECURITY')}
-                onSelectAlert={(a) => setSelectedSnapshotAlert(a)}
-                onAlertAck={(id) => fetchData()}
-                isBuzzerActive={isBuzzerActive}
-                onStopBuzzer={handleStopBuzzer}
-              />
-            </div>
+
+            {/* Bottom Row: Real-Time Alert Feedback Container below both containers */}
+            <AlertCenter
+              alerts={alerts.filter(a => a.channel === 'ANIMAL_HUMAN_SECURITY')}
+              onSelectAlert={(a) => setSelectedSnapshotAlert(a)}
+              onAlertAck={(id) => fetchData()}
+              isBuzzerActive={isBuzzerActive}
+              onStopBuzzer={handleStopBuzzer}
+              fullWidth={true}
+            />
           </div>
         )}
 
         {/* VIEW 2: Water Safety & Drowning Surveillance */}
         {activeTab === 'drowning' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <LivePlayer
-                channelId="drowning"
-                title="Water Rescue & Drowning Detection CCTV Feed"
-                badge="Active Channel 1"
-                badgeColor="cyan"
-                availableVideos={availableVideos}
-                currentSource={channelSources.drowning}
-                onSourceChange={(src) => setChannelSources(prev => ({ ...prev, drowning: src }))}
-                onOpenUpload={(ch) => setUploadChannel(ch || 'drowning')}
-                onOpenPhoneCamera={(ch) => setPhoneCameraChannel(ch || 'drowning')}
-                stats={drowningStats}
-              />
+          <div className="space-y-6">
+            {/* Top Row: Surveillance Feed and Water Rescue Telemetry Side-by-Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              <div className="lg:col-span-7 flex flex-col">
+                <LivePlayer
+                  channelId="drowning"
+                  title="Water Rescue & Drowning Detection CCTV Feed"
+                  badge="Active Channel 1"
+                  badgeColor="cyan"
+                  availableVideos={availableVideos}
+                  currentSource={channelSources.drowning}
+                  onSourceChange={(src) => setChannelSources(prev => ({ ...prev, drowning: src }))}
+                  onOpenUpload={(ch) => setUploadChannel(ch || 'drowning')}
+                  onOpenPhoneCamera={(ch) => setPhoneCameraChannel(ch || 'drowning')}
+                  stats={drowningStats}
+                />
+              </div>
+              <div className="lg:col-span-5 flex flex-col">
+                <DrowningStatsCard stats={drowningStats} />
+              </div>
             </div>
-            <div className="space-y-6">
-              <DrowningStatsCard stats={drowningStats} />
-              <AlertCenter
-                alerts={alerts.filter(a => a.channel === 'DROWNING_RESCUE')}
-                onSelectAlert={(a) => setSelectedSnapshotAlert(a)}
-                onAlertAck={(id) => fetchData()}
-                isBuzzerActive={isBuzzerActive}
-                onStopBuzzer={handleStopBuzzer}
-              />
-            </div>
+
+            {/* Bottom Row: Real-Time Alert Feedback Container below both containers */}
+            <AlertCenter
+              alerts={alerts.filter(a => a.channel === 'DROWNING_RESCUE')}
+              onSelectAlert={(a) => setSelectedSnapshotAlert(a)}
+              onAlertAck={(id) => fetchData()}
+              isBuzzerActive={isBuzzerActive}
+              onStopBuzzer={handleStopBuzzer}
+              fullWidth={true}
+            />
           </div>
         )}
 
@@ -283,6 +296,9 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Logic & Calculations System Footer */}
+      <Footer />
 
       {/* Snapshot Inspector Modal */}
       {selectedSnapshotAlert && (
