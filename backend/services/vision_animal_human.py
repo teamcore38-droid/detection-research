@@ -353,27 +353,42 @@ class AnimalHumanThreatDetector:
                 min_edge_m = closest_metrics["edge_distance_m"]
                 min_edge_px = closest_metrics["edge_distance_px"]
                 
-                # Critical threat condition:
-                # 1. Real-world centroid distance <= metric threshold (e.g. 3.5m)
-                # 2. OR Physical perimeter boundary gap <= 1.5m (direct contact/collision hazard)
-                # 3. OR Pixel proximity threshold breached
-                is_critical = (
+                # Proximity breach condition (<= 3.5m or boundary gap <= 1.5m or pixel proximity)
+                is_close = (
                     min_distance_m <= proximity_thresh_m or 
                     min_edge_m <= DEFAULT_CRITICAL_EDGE_METERS_THRESHOLD or 
                     min_distance <= proximity_thresh
                 )
                 
                 animal_name = closest_pair[0]["class"]
-                if is_critical:
-                    threat_level = "CRITICAL"
-                    status_text = f"🚨 CRITICAL: ATTACK RISK ({animal_name} - {min_distance_m}m / {int(min_distance)}px | Edge Gap: {min_edge_m}m)!"
-                else:
-                    threat_level = "WARNING"
-                    status_text = f"⚠️ CAUTION: Animal and Human in Vicinity ({animal_name} - {min_distance_m}m / {int(min_distance)}px)"
+                
+                # Check animal threat classification
+                if animal_name in HIGH_THREAT_ANIMALS:
+                    if is_close:
+                        threat_level = "CRITICAL"
+                        status_text = f"🚨 CRITICAL: ATTACK RISK ({animal_name} - {min_distance_m}m / {int(min_distance)}px | Edge Gap: {min_edge_m}m)!"
+                    else:
+                        threat_level = "WARNING"
+                        status_text = f"⚠️ CAUTION: Predatory Wildlife in Perimeter ({animal_name} - {min_distance_m}m / {int(min_distance)}px)"
+                elif animal_name in MEDIUM_THREAT_ANIMALS:
+                    if is_close:
+                        threat_level = "WARNING"
+                        status_text = f"⚠️ CAUTION: Large Wildlife Proximity ({animal_name} - {min_distance_m}m / {int(min_distance)}px)"
+                    else:
+                        threat_level = "LOW"
+                        status_text = f"ℹ️ LOW THREAT: Animal in Vicinity ({animal_name} - {min_distance_m}m / {int(min_distance)}px)"
+                else: # LOW_THREAT_ANIMALS: Cat, Cow, Deer, Donkey, Dog, Camel
+                    threat_level = "LOW"
+                    status_text = f"ℹ️ LOW THREAT: Domestic/Docile Animal Co-presence ({animal_name} - {min_distance_m}m / {int(min_distance)}px)"
         elif detected_animals:
-            threat_level = "WARNING"
+            has_dangerous = any(a["class"] in HIGH_THREAT_ANIMALS for a in detected_animals)
             animal_names_str = ", ".join(list(set(a["class"] for a in detected_animals)))
-            status_text = f"⚠️ WARNING: Wild Animal Detected ({animal_names_str})"
+            if has_dangerous:
+                threat_level = "WARNING"
+                status_text = f"⚠️ WARNING: Wild Animal Detected ({animal_names_str})"
+            else:
+                threat_level = "LOW"
+                status_text = f"NORMAL: Low-Threat Animal Detected ({animal_names_str})"
         elif detected_humans:
             threat_level = "SAFE"
             status_text = f"NORMAL: Personnel on Site ({len(detected_humans)} detected)"
@@ -381,7 +396,12 @@ class AnimalHumanThreatDetector:
         # Draw Animals with Persistent Locked Labels
         for a in detected_animals:
             x1, y1, x2, y2 = a["bbox"]
-            color = (0, 60, 255) if a["threat_class"] == "HIGH" else (0, 215, 255)
+            if a["threat_class"] == "HIGH":
+                color = (0, 60, 255) # Red for high threat
+            elif a["threat_class"] == "MEDIUM":
+                color = (0, 215, 255) # Amber for medium threat
+            else:
+                color = (0, 200, 100) # Green for low threat (Cat, Cow, Deer, Donkey, Dog, Camel)
             cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
             
             lock_symbol = " [LOCKED]" if a.get("is_locked") else ""
@@ -408,10 +428,15 @@ class AnimalHumanThreatDetector:
             a, hum = closest_pair
             ax, ay = a["center"]
             hx, hy = hum["center"]
-            line_color = (0, 0, 255) if threat_level == "CRITICAL" else (0, 215, 255)
+            if threat_level == "CRITICAL":
+                line_color = (0, 0, 255) # Red
+            elif threat_level == "WARNING":
+                line_color = (0, 215, 255) # Amber
+            else:
+                line_color = (0, 220, 100) # Green for low threat
             
             # Vector line connecting actual detected positions
-            cv2.line(annotated, (ax, ay), (hx, hy), line_color, 2 if threat_level == "WARNING" else 4)
+            cv2.line(annotated, (ax, ay), (hx, hy), line_color, 2 if threat_level == "WARNING" else (4 if threat_level == "CRITICAL" else 2))
             cv2.circle(annotated, (ax, ay), 6, line_color, -1)
             cv2.circle(annotated, (hx, hy), 6, line_color, -1)
             
@@ -432,9 +457,21 @@ class AnimalHumanThreatDetector:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 1, cv2.LINE_AA)
 
         # Draw HUD Top Bar
-        hud_bg = (0, 0, 180) if threat_level == "CRITICAL" else ((0, 120, 180) if threat_level == "WARNING" else (30, 30, 30))
+        if threat_level == "CRITICAL":
+            hud_bg = (0, 0, 180)
+            hud_line = (0, 0, 255)
+        elif threat_level == "WARNING":
+            hud_bg = (0, 120, 180)
+            hud_line = (0, 200, 255)
+        elif threat_level == "LOW":
+            hud_bg = (20, 70, 30) # Dark Green
+            hud_line = (0, 200, 100)
+        else:
+            hud_bg = (30, 30, 30)
+            hud_line = (70, 70, 70)
+
         cv2.rectangle(annotated, (0, 0), (w, 42), hud_bg, -1)
-        cv2.line(annotated, (0, 42), (w, 42), (0, 0, 255) if threat_level == "CRITICAL" else (0, 200, 255), 2)
+        cv2.line(annotated, (0, 42), (w, 42), hud_line, 2)
         
         cv2.putText(annotated, status_text, (15, 28), cv2.FONT_HERSHEY_DUPLEX, 0.60, (255, 255, 255), 2, cv2.LINE_AA)
         

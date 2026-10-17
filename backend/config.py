@@ -39,8 +39,8 @@ DEFAULT_PIXELS_PER_METER_FALLBACK = 60.0 # Fallback camera calibration (px/meter
 # Temporal debounce for alerts (seconds)
 ALERT_DEBOUNCE_SECONDS = 3.0
 
-# Dangerous animal classes that escalate threat when humans are nearby
+# Dangerous animal classes that escalate threat to CRITICAL when humans are nearby
 HIGH_THREAT_ANIMALS = {'Bear', 'Leopard', 'Lion', 'Tiger', 'Elephant'}
-MEDIUM_THREAT_ANIMALS = {'Buffalo', 'Cow', 'Dog', 'Camel', 'Donkey', 'Deer'}
-LOW_THREAT_ANIMALS = {'Cat'}
+MEDIUM_THREAT_ANIMALS = {'Buffalo'}
+LOW_THREAT_ANIMALS = {'Cat', 'Cow', 'Deer', 'Donkey', 'Dog', 'Camel'}
 

@@ -23,6 +23,7 @@ export const ThreatRadar = ({ stats = {} }) => {
 
   const isCritical = threatLevel === 'CRITICAL';
   const isWarning = threatLevel === 'WARNING';
+  const isLow = threatLevel === 'LOW';
   const isSafe = threatLevel === 'SAFE';
 
   // Real-world metric distance range calculation (0m to 8.0m mapped to percentage)
@@ -45,7 +46,9 @@ export const ThreatRadar = ({ stats = {} }) => {
             ? 'bg-red-100 text-red-800 border-red-300 animate-pulse'
             : isWarning
             ? 'bg-amber-100 text-amber-900 border-amber-300'
-            : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+            : isLow
+            ? 'bg-emerald-100 text-emerald-800 border-emerald-400'
+            : 'bg-slate-100 text-slate-700 border-slate-300'
         }`}>
           {threatLevel}
         </span>
@@ -57,10 +60,12 @@ export const ThreatRadar = ({ stats = {} }) => {
           ? 'bg-red-50 border-red-300 text-red-950'
           : isWarning
           ? 'bg-amber-50 border-amber-300 text-amber-950'
+          : isLow
+          ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
           : 'bg-slate-50 border-slate-200 text-slate-900'
       }`}>
         <div className={`p-2.5 rounded-xl shadow ${
-          isCritical ? 'bg-red-600 text-white' : isWarning ? 'bg-amber-600 text-white' : 'bg-emerald-600 text-white'
+          isCritical ? 'bg-red-600 text-white' : isWarning ? 'bg-amber-600 text-white' : isLow ? 'bg-emerald-500 text-white' : 'bg-emerald-600 text-white'
         }`}>
           {isCritical ? <ShieldAlert className="w-6 h-6 animate-bounce" /> : isWarning ? <AlertTriangle className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}
         </div>
@@ -185,6 +190,8 @@ export const ThreatRadar = ({ stats = {} }) => {
           ? 'Dispatch immediate loudspeaker warning & security intervention team.'
           : isWarning
           ? 'Maintain camera tracking and observe perimeter fence.'
+          : isLow
+          ? 'Animal co-presence is non-threatening. Standard monitoring active.'
           : 'Standard surveillance monitoring active.'}
       </div>
     </div>
