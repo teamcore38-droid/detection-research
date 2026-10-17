@@ -3,19 +3,31 @@ import time
 import cv2
 import json
 import asyncio
+import logging
+import threading
 from datetime import datetime
 from typing import List, Set
 from fastapi import WebSocket
 
 from backend.config import SNAPSHOTS_DIR
 from backend.database.db import insert_alert
+from backend.services.sms_notifier import sms_notifier
+
+logger = logging.getLogger(__name__)
 
 ALERT_DEBOUNCE_SECONDS = 8.0 # 8 seconds debounce to prevent spamming DB
 
 class AlertManager:
-    def __init__(self):
+    def __init__(self, sms_service=None):
         self.active_websockets: Set[WebSocket] = set()
         self.last_alert_times = {} # key: alert_key -> timestamp
+        self._debounce_lock = threading.Lock()
+        self._event_loop = None
+        self._sms_service = sms_service if sms_service is not None else sms_notifier
+
+    def set_event_loop(self, loop):
+        # Capture FastAPI's loop; capture threads do not own asyncio event loops.
+        self._event_loop = loop
 
     async def register_websocket(self, websocket: WebSocket):
         await websocket.accept()
@@ -50,11 +62,11 @@ class AlertManager:
         debounce_key = f"{channel}_{alert_type}_{threat_level}"
         now = time.time()
         
-        last_time = self.last_alert_times.get(debounce_key, 0)
-        if now - last_time < ALERT_DEBOUNCE_SECONDS:
-            return None
-            
-        self.last_alert_times[debounce_key] = now
+        with self._debounce_lock:
+            last_time = self.last_alert_times.get(debounce_key, 0)
+            if now - last_time < ALERT_DEBOUNCE_SECONDS:
+                return None
+            self.last_alert_times[debounce_key] = now
         
         # Save snapshot if frame is provided
         snapshot_filename = None
@@ -83,11 +95,13 @@ class AlertManager:
         )
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.run_coroutine_threadsafe(self.broadcast_alert(alert_record), loop)
+            self._sms_service.notify_critical(alert_record)
         except Exception:
-            pass
+            logger.error("Could not queue SMS for alert %s", alert_record.get("id"))
+
+        loop = self._event_loop
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(self.broadcast_alert(alert_record), loop)
 
         return alert_record
 

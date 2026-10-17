@@ -36,6 +36,9 @@ backend/static/uploads/*.mp4
 !backend/static/snapshots/.gitkeep
 
 # OS / IDE
+.env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
 .vscode/

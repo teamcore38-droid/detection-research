@@ -1,6 +1,7 @@
 import os
 import shutil
 import time
+import asyncio
 from typing import Optional
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -27,6 +28,7 @@ from backend.database.db import (
     clear_all_alerts
 )
 from backend.services.alert_manager import alert_manager
+from backend.services.sms_notifier import sms_notifier
 from backend.services.video_stream import video_stream_service
 
 @asynccontextmanager
@@ -34,17 +36,23 @@ async def lifespan(app: FastAPI):
     # Startup
     print("Initializing Surveillance Database...")
     init_db()
+    alert_manager.set_event_loop(asyncio.get_running_loop())
+    sms_notifier.start()
     # Auto-start default channels
     try:
         video_stream_service.start_channel("animal_human", source=DEFAULT_ANIMAL_HUMAN_VIDEO)
         video_stream_service.start_channel("drowning", source=DEFAULT_DROWNING_VIDEO)
     except Exception as e:
         print(f"Failed to auto-start channels: {e}")
-    yield
-    # Shutdown
-    print("Stopping all video streams...")
-    for ch_id in list(video_stream_service.channels.keys()):
-        video_stream_service.stop_channel(ch_id)
+    try:
+        yield
+    finally:
+        # Shutdown
+        print("Stopping all video streams...")
+        for ch_id in list(video_stream_service.channels.keys()):
+            video_stream_service.stop_channel(ch_id)
+        await asyncio.to_thread(sms_notifier.close)
+        alert_manager.set_event_loop(None)
 
 app = FastAPI(
     title="AI Surveillance & Threat Detection API",
@@ -228,6 +236,11 @@ async def clear_alerts():
 # -----------------
 # Settings API
 # -----------------
+@app.get("/api/notifications/sms/status")
+async def get_sms_status():
+    return sms_notifier.get_status()
+
+
 class SettingsUpdateRequest(BaseModel):
     channel_id: Optional[str] = "all"
     drowning_confidence: Optional[float] = None

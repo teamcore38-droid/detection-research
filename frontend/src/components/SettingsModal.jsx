@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Sliders, Save, Check } from 'lucide-react';
-import { updateSettings } from '../services/api';
+import { getSmsStatus, updateSettings } from '../services/api';
 
 export const SettingsModal = ({ onClose, onSaved }) => {
   const [drowningConf, setDrowningConf] = useState(40);
@@ -9,6 +9,26 @@ export const SettingsModal = ({ onClose, onSaved }) => {
   const [proximityMeters, setProximityMeters] = useState(3.5);
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [smsStatus, setSmsStatus] = useState(null);
+  const [smsError, setSmsError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      try {
+        const status = await getSmsStatus();
+        if (active) {
+          setSmsStatus(status);
+          setSmsError(false);
+        }
+      } catch {
+        if (active) setSmsError(true);
+      }
+    };
+    refresh();
+    const timer = setInterval(refresh, 5000);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -36,7 +56,7 @@ export const SettingsModal = ({ onClose, onSaved }) => {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
+      <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="px-6 py-4 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
             <Sliders className="w-5 h-5 text-cyan-600" />
@@ -51,6 +71,37 @@ export const SettingsModal = ({ onClose, onSaved }) => {
         </div>
 
         <div className="p-6 space-y-5 text-xs text-slate-700">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2" aria-live="polite">
+            <h4 className="font-extrabold text-slate-900">SMS emergency notifications</h4>
+            {smsError ? (
+              <p className="text-red-700">Unable to check SMS status. Check the backend connection.</p>
+            ) : !smsStatus ? (
+              <p>Checking SMS status...</p>
+            ) : (
+              <>
+                <p className={smsStatus.running && !smsStatus.limit_reached ? 'text-emerald-700 font-bold' : 'text-amber-800 font-bold'}>
+                  {!smsStatus.enabled ? 'SMS is disabled' : !smsStatus.configured ? 'SMS setup is incomplete' : smsStatus.limit_reached ? 'Sample SMS limit reached' : smsStatus.running ? 'Ready for critical alerts' : 'SMS worker is offline'}
+                </p>
+                <p>Provider: {smsStatus.provider}</p>
+                <p>Recipients: {smsStatus.recipients.join(', ') || 'None configured'}</p>
+                <p>Critical animal-human and drowning alerts. Repeat interval: {Math.round(smsStatus.cooldown_seconds / 60 * 10) / 10} minutes.</p>
+                {smsStatus.message_limit > 0 && <p>Automatic sample limit: {smsStatus.scheduled_count} / {smsStatus.message_limit} submissions this backend run.</p>}
+                {!smsStatus.running && <p>Add your {smsStatus.provider} credentials and enable SMS in the server's .env file, then restart the backend.</p>}
+                {smsStatus.enabled && smsStatus.configuration_errors.map((error) => <p key={error} className="text-red-700">{error}</p>)}
+                {smsStatus.recent_submissions.length > 0 && (
+                  <div className="pt-2 border-t border-slate-200 space-y-1">
+                    {smsStatus.recent_submissions.map((item) => (
+                      <p key={`${item.channel}-${item.type}-${item.recipient}`} className={item.status === 'error' ? 'text-red-700' : 'text-slate-600'}>
+                        {item.recipient}: {item.type === 'DROWNING_EMERGENCY' ? 'Drowning' : 'Animal-human'} — {item.error || `${smsStatus.provider}: ${item.status}`}
+                      </p>
+                    ))}
+                    <p>Submission status only. Check the provider's message history and the recipient's phone.</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           {/* Drowning Confidence */}
           <div className="space-y-2">
             <div className="flex justify-between font-mono">

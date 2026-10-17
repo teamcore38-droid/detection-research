@@ -7,6 +7,11 @@ export const api = axios.create({
   timeout: 15000,
 });
 
+export const getSmsStatus = async () => {
+  const res = await api.get('/api/notifications/sms/status');
+  return res.data;
+};
+
 export const getAlerts = async (params = {}) => {
   const res = await api.get('/api/alerts', { params });
   return res.data.alerts;
