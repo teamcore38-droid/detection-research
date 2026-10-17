@@ -48,10 +48,20 @@ class StreamChannel:
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=1.0)
 
+    def reset_state(self):
+        """Resets stream frame, telemetry stats, and AI detector tracking states."""
+        with self.lock:
+            self.latest_encoded_frame = None
+            self.latest_stats = {}
+            if self.animal_human_detector:
+                self.animal_human_detector.reset_tracking()
+            if self.drowning_detector:
+                self.drowning_detector.reset()
+
     def set_source(self, new_source: str):
         with self.lock:
             self.source = str(new_source).strip()
-            self.latest_encoded_frame = None
+            self.reset_state()
 
     def update_settings(self, conf1: float = None, conf2: float = None, proximity: float = None, proximity_meters: float = None):
         if conf1 is not None:
@@ -168,6 +178,7 @@ class StreamChannel:
             
             if self.source != current_active_source:
                 cap.release()
+                self.reset_state()
                 cap = self._open_capture()
                 current_active_source = self.source
                 is_live = self._is_live_stream(self.source)
@@ -179,10 +190,12 @@ class StreamChannel:
             
             if not ret:
                 if not is_live:
+                    self.reset_state()
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     ret, frame = cap.read()
                     if not ret:
                         cap.release()
+                        self.reset_state()
                         cap = self._open_capture()
                         ret, frame = cap.read()
                         if not ret:
@@ -301,9 +314,14 @@ class VideoStreamService:
         channel = self.channels[channel_id]
         if source:
             channel.set_source(source)
+        channel.reset_state()
             
         if not channel.is_running:
             channel.start()
+
+    def reset_channel(self, channel_id: str):
+        if channel_id in self.channels:
+            self.channels[channel_id].reset_state()
 
     def stop_channel(self, channel_id: str):
         if channel_id in self.channels:

@@ -10,6 +10,10 @@ class DrowningDetector:
         self.class_names = self.model.names # {0: 'drowning', 1: 'swimming'}
         self.drowning_history = [] # For temporal smoothing
 
+    def reset(self):
+        """Clears temporal smoothing history on stream change or loop restart."""
+        self.drowning_history.clear()
+
     def process_frame(self, frame: np.ndarray, conf_threshold: float = DEFAULT_CONF_DROWNING):
         """
         Runs drowning model on frame and renders HUD and bounding boxes.

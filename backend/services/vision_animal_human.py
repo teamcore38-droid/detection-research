@@ -105,9 +105,11 @@ class TrackedAnimal:
         
         # 80% Persistence Rule: Lock class identity when accuracy/confidence >= 80% (0.80)
         self.is_locked = (conf >= 0.80)
-        self.locked_class = cls_name if self.is_locked else cls_name
+        self.locked_class = cls_name
         self.highest_conf = conf
         self.best_class = cls_name
+        self.contradiction_count = 0
+        self.contradiction_class = None
 
     def update(self, bbox: list, cls_name: str, conf: float):
         self.bbox = bbox
@@ -116,21 +118,40 @@ class TrackedAnimal:
         self.age += 1
         self.misses = 0
 
-        # Once confidence reaches >= 80%, lock this animal's name permanently
+        # Once confidence reaches >= 80%, lock this animal's name
         if conf >= 0.80:
             if not self.is_locked:
                 self.is_locked = True
                 self.locked_class = cls_name
                 self.highest_conf = conf
+                self.best_class = cls_name
+                self.contradiction_count = 0
             else:
-                if conf > self.highest_conf and cls_name == self.locked_class:
-                    self.highest_conf = conf
+                if cls_name == self.locked_class:
+                    if conf > self.highest_conf:
+                        self.highest_conf = conf
+                    self.contradiction_count = 0
+                else:
+                    # A different class was detected with >= 80% confidence
+                    if self.contradiction_class == cls_name:
+                        self.contradiction_count += 1
+                    else:
+                        self.contradiction_class = cls_name
+                        self.contradiction_count = 1
+                    
+                    # If 4 consecutive frames confirm this new class with >= 80% confidence, adaptively correct the lock
+                    if self.contradiction_count >= 4:
+                        self.locked_class = cls_name
+                        self.highest_conf = conf
+                        self.best_class = cls_name
+                        self.contradiction_count = 0
         else:
-            # If not yet locked at 80%, keep track of the highest confidence observation
+            # If not yet locked at 80%, keep track of highest confidence observation
             if not self.is_locked:
                 if conf > self.highest_conf:
                     self.highest_conf = conf
                     self.best_class = cls_name
+            self.contradiction_count = max(0, self.contradiction_count - 1)
 
     def get_identity(self):
         """Returns the stable class name, display confidence, and locked status."""
@@ -168,10 +189,11 @@ class AnimalTrackerManager:
                 if iou > best_iou:
                     best_iou = iou
                     best_track_id = track_id
-                elif (c_dist < diag * 0.75 and best_track_id is None) or iou > 0.10:
+                elif (iou >= 0.15 and c_dist < diag * 0.60) and best_track_id is None:
                     best_track_id = track_id
 
-            if best_track_id is not None and (best_iou >= self.iou_threshold or best_iou > 0.08):
+            # Only match if spatial continuity is solid (IoU >= 0.20 or IoU >= 0.12 with proximity)
+            if best_track_id is not None and (best_iou >= self.iou_threshold or best_iou >= 0.12):
                 self.tracks[best_track_id].update(det["bbox"], det["class"], det["confidence"])
                 matched_tracks.add(best_track_id)
                 matched_detections.add(det_idx)
@@ -223,6 +245,11 @@ class AnimalHumanThreatDetector:
         self.animal_names = self.animal_model.names
         self.human_names = self.human_model.names
         self.tracker = AnimalTrackerManager()
+
+    def reset_tracking(self):
+        """Clears all animal tracks and resets ID counter."""
+        if self.tracker:
+            self.tracker.reset()
 
     def process_frame(self, frame: np.ndarray, 
                       animal_conf: float = DEFAULT_CONF_ANIMAL, 

@@ -119,14 +119,23 @@ async def control_stream(req: StreamControlRequest):
 
     if req.action == "start":
         video_stream_service.start_channel(req.channel_id, source=src)
+        video_stream_service.reset_channel(req.channel_id)
     elif req.action == "stop":
         video_stream_service.stop_channel(req.channel_id)
-    elif req.action == "restart":
+    elif req.action in ["restart", "reset"]:
         video_stream_service.stop_channel(req.channel_id)
         time.sleep(0.15)
         video_stream_service.start_channel(req.channel_id, source=src)
+        video_stream_service.reset_channel(req.channel_id)
         
     return {"status": "success", "channel_id": req.channel_id, "action": req.action, "source": str(src)}
+
+@app.post("/api/stream/{channel_id}/reset")
+async def reset_stream(channel_id: str):
+    if channel_id not in video_stream_service.channels:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    video_stream_service.reset_channel(channel_id)
+    return {"status": "success", "channel_id": channel_id, "action": "reset"}
 
 @app.get("/api/stream/{channel_id}/stats")
 async def get_stream_stats(channel_id: str):
