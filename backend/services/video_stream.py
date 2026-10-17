@@ -17,7 +17,7 @@ class StreamChannel:
         self.source = str(source)
         
         self.is_running = False
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.thread: Optional[threading.Thread] = None
         self.latest_encoded_frame: Optional[bytes] = None
         self.latest_stats: dict = {}
